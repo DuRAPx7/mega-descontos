@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Mega Descontos</title>
+    <script src="theme.js"></script>
     <link rel="preconnect" href="https://images.unsplash.com">
     <link rel="stylesheet" href="styles.css">
   </head>
@@ -31,6 +32,7 @@
       </form>
 
       <div class="header-actions">
+        <button class="theme-toggle" type="button" data-theme-toggle>Tema escuro</button>
         <a href="#ofertas" id="favoriteFilterLink">Favoritos</a>
         <a href="#newsletter">Alertas</a>
       </div>
@@ -133,6 +135,7 @@
             <option value="Celulares">Celulares</option>
             <option value="Informatica">Informatica</option>
             <option value="Casa e Cozinha">Casa e Cozinha</option>
+            <option value="Ofertas">Ofertas</option>
             <option value="Beleza">Beleza</option>
             <option value="Moda">Moda</option>
             <option value="Esportes">Esportes</option>
@@ -203,6 +206,7 @@
     </footer>
 
     <script src="data/offers.js"></script>
+    <script>window.MegaTheme.init();</script>
     <script src="app.js"></script>
   </body>
 </html>

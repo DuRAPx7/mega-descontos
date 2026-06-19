@@ -11,12 +11,16 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
+from offer_validation import partition_valid_offers
+from storage import offer_storage
+
 
 ROOT_DIR = Path(__file__).resolve().parent
 OFFERS_DB = ROOT_DIR / "data" / "offers_db.json"
 DEFAULT_OFFERS_JS = ROOT_DIR / "data" / "offers.js"
 ADMIN_CONFIG = ROOT_DIR / "config" / "admin.json"
 BOT_PATH = ROOT_DIR / "bot" / "discount_bot.py"
+BOT_STATUS = ROOT_DIR / "bot" / "status.json"
 BOT_INTERVAL_SECONDS = 600
 SESSION_COOKIE = "mega_admin_session"
 SESSIONS: set[str] = set()
@@ -42,15 +46,21 @@ def extract_default_offers() -> list[dict]:
     return json.loads(content[start:end])
 
 
-def ensure_offers_db() -> None:
+def load_seed_offers() -> list[dict]:
     if OFFERS_DB.exists():
-        return
+        try:
+            data = json.loads(OFFERS_DB.read_text(encoding="utf-8"))
+            if isinstance(data, list):
+                return data
+        except json.JSONDecodeError:
+            pass
+    return extract_default_offers()
 
-    OFFERS_DB.parent.mkdir(parents=True, exist_ok=True)
-    OFFERS_DB.write_text(
-        json.dumps(extract_default_offers(), ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+
+def ensure_offers_db() -> None:
+    imported = offer_storage.initialize(load_seed_offers())
+    if imported:
+        print(f"[Mega Descontos] {imported} ofertas migradas para {offer_storage.description}.")
 
 
 def load_admin_config() -> dict:
@@ -70,13 +80,20 @@ def load_admin_config() -> dict:
 
 def read_offers() -> list[dict]:
     ensure_offers_db()
-    data = json.loads(OFFERS_DB.read_text(encoding="utf-8"))
-    return data if isinstance(data, list) else []
+    return offer_storage.read_all()
 
 
 def write_offers(offers: list[dict]) -> None:
-    OFFERS_DB.parent.mkdir(parents=True, exist_ok=True)
-    OFFERS_DB.write_text(json.dumps(offers, ensure_ascii=False, indent=2), encoding="utf-8")
+    offer_storage.replace_all(offers)
+
+
+def read_candidates() -> list[dict]:
+    ensure_offers_db()
+    return offer_storage.read_candidates()
+
+
+def write_candidates(candidates: list[dict]) -> None:
+    offer_storage.replace_candidates(candidates)
 
 
 def parse_datetime(value: str | None) -> datetime | None:
@@ -106,6 +123,15 @@ def remove_expired_offers() -> int:
     return removed
 
 
+def remove_invalid_offers() -> int:
+    offers = read_offers()
+    valid_offers, rejected = partition_valid_offers(offers)
+    if rejected:
+        write_offers(valid_offers)
+        print(f"[Mega Descontos] {len(rejected)} ofertas de exemplo ou invalidas removidas.")
+    return len(rejected)
+
+
 def read_json_body(handler: SimpleHTTPRequestHandler) -> object:
     content_length = int(handler.headers.get("Content-Length", "0"))
     raw_body = handler.rfile.read(content_length)
@@ -122,6 +148,15 @@ def write_json(handler: SimpleHTTPRequestHandler, payload: object, status: int =
     handler.send_header("Cache-Control", "no-store")
     handler.end_headers()
     handler.wfile.write(body)
+
+
+def read_bot_status() -> dict:
+    if not BOT_STATUS.exists():
+        return {"checkedAt": "", "generatedOffers": 0, "totalPublished": 0, "sources": []}
+    try:
+        return json.loads(BOT_STATUS.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {"checkedAt": "", "generatedOffers": 0, "totalPublished": 0, "sources": []}
 
 
 def get_session_token(handler: SimpleHTTPRequestHandler) -> str | None:
@@ -150,13 +185,21 @@ def clear_session_cookie(handler: SimpleHTTPRequestHandler) -> None:
 def run_bot_once() -> None:
     try:
         bot = load_discount_bot()
+        existing_offers = read_offers()
         offers = bot.generate_offers(
             bot.DEFAULT_INPUT,
             bot.DEFAULT_OUTPUT,
             bot.DEFAULT_DB,
             minimum_discount=15,
             purge_missing=True,
+            real_sources_path=bot.DEFAULT_REAL_SOURCES,
+            status_path=bot.DEFAULT_STATUS,
+            existing_offers=existing_offers,
+            persist_db=False,
         )
+        merged_offers = bot.merge_offers(existing_offers, offers, purge_missing=True)
+        write_offers(merged_offers)
+        write_candidates(bot.get_candidates())
         removed = remove_expired_offers()
         print(f"[Mega Descontos] Bot publicou {len(offers)} ofertas. Expiradas removidas: {removed}.")
     except Exception as error:
@@ -188,6 +231,31 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
 
         if parsed.path == "/api/auth":
             write_json(self, {"authenticated": is_authenticated(self)})
+            return
+
+        if parsed.path == "/healthz":
+            write_json(
+                self,
+                {
+                    "ok": True,
+                    "storage": offer_storage.backend,
+                    "persistent": offer_storage.backend == "postgresql",
+                },
+            )
+            return
+
+        if parsed.path == "/api/bot-status":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            write_json(self, read_bot_status())
+            return
+
+        if parsed.path == "/api/candidates":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            write_json(self, {"candidates": read_candidates()})
             return
 
         if parsed.path == "/admin.html" and not is_authenticated(self):
@@ -261,7 +329,13 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
             if not isinstance(payload, list):
                 raise ValueError("Payload deve ser uma lista de ofertas.")
 
-            write_offers(payload)
+            valid_offers, rejected = partition_valid_offers(payload)
+            if rejected:
+                first = rejected[0]
+                details = "; ".join(first["errors"])
+                raise ValueError(f"{first['title']}: {details}")
+
+            write_offers(valid_offers)
             removed = remove_expired_offers()
             write_json(self, {"ok": True, "total": len(read_offers()), "removedExpired": removed})
         except Exception as error:
@@ -273,12 +347,16 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
 
 def run() -> None:
     ensure_offers_db()
+    remove_invalid_offers()
     remove_expired_offers()
     start_bot_scheduler()
     server = ThreadingHTTPServer((HOST, PORT), MegaDescontosHandler)
     public_host = "127.0.0.1" if HOST in {"0.0.0.0", ""} else HOST
     print(f"Mega Descontos rodando em http://{public_host}:{PORT}")
     print(f"Admin em http://{public_host}:{PORT}/admin.html")
+    print(f"Banco de dados: {offer_storage.description}")
+    if HOST == "0.0.0.0" and offer_storage.backend != "postgresql":
+        print("ATENCAO: DATABASE_URL nao configurada. O SQLite pode ser apagado pela hospedagem.")
     if os.environ.get("ADMIN_USERNAME") and os.environ.get("ADMIN_PASSWORD"):
         print("Login admin carregado por variaveis de ambiente.")
     else:

@@ -173,7 +173,7 @@ function renderOffers() {
           <button class="favorite-button ${isFavorite ? "active" : ""}" type="button" data-offer-id="${offer.id}" aria-label="Adicionar aos favoritos">
             ${isFavorite ? "Favorito" : "Salvar"}
           </button>
-          <img src="${offer.image}" alt="${offer.title}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1607083206968-13611e3d76db?auto=format&fit=crop&w=600&q=80'">
+          <img src="${offer.image}" alt="${offer.title}" loading="lazy" onerror="this.style.visibility='hidden'">
           <div class="offer-body">
             <h3>${offer.title}</h3>
             <span class="store-name">${offer.store}</span>
@@ -197,6 +197,9 @@ function renderOffers() {
   resultsCount.textContent = `${filteredOffers.length} ${
     filteredOffers.length === 1 ? "oferta" : "ofertas"
   }${showFavoritesOnly ? " favoritas" : ""}`;
+  emptyState.textContent = offers.length
+    ? "Nenhuma oferta encontrada com esses filtros."
+    : "Ainda nao ha ofertas reais publicadas. O bot continua monitorando as lojas.";
   emptyState.hidden = filteredOffers.length > 0;
 }
 

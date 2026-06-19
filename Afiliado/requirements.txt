@@ -1,1 +1,1 @@
-# Sem dependencias externas por enquanto.
+psycopg[binary]>=3.2,<4

@@ -39,6 +39,8 @@ const replaceImport = document.querySelector("#replaceImport");
 const importStatus = document.querySelector("#importStatus");
 const runBotNow = document.querySelector("#runBotNow");
 const logoutAdmin = document.querySelector("#logoutAdmin");
+const botStatusList = document.querySelector("#botStatusList");
+const botStatusSummary = document.querySelector("#botStatusSummary");
 
 const moneyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -74,11 +76,12 @@ function saveAdminOffers() {
       "Content-Type": "application/json"
     },
     body: JSON.stringify(adminOffers)
-  }).then((response) => {
+  }).then(async (response) => {
+    const result = await response.json();
     if (!response.ok) {
-      throw new Error("Nao foi possivel salvar no servidor.");
+      throw new Error(result.error || "Nao foi possivel salvar no servidor.");
     }
-    return response.json();
+    return result;
   });
 }
 
@@ -107,11 +110,71 @@ function loadAdminOffersFromApi() {
     });
 }
 
+function renderBotStatus(status) {
+  const sources = status.sources || [];
+  botStatusSummary.textContent = status.checkedAt
+    ? `Ultima execucao: ${new Date(status.checkedAt).toLocaleString("pt-BR")} / ${status.generatedOffers || 0} publicadas / ${status.rejectedOffers || 0} rejeitadas.`
+    : "O bot ainda nao registrou uma execucao.";
+
+  if (!sources.length) {
+    botStatusList.innerHTML = "<p>Nenhuma fonte registrada ainda.</p>";
+    return;
+  }
+
+  botStatusList.innerHTML = sources
+    .map((source) => `
+      <article class="bot-status-item ${source.ok ? "ok" : "error"}">
+        <strong>${source.name || source.type}</strong>
+        <span>${source.ok ? `${source.count || 0} itens capturados` : `Erro: ${source.error}`}</span>
+        <span>${source.type}</span>
+      </article>
+    `)
+    .join("");
+}
+
+function loadBotStatus() {
+  if (!isHttpPage()) {
+    renderBotStatus({ sources: [] });
+    return Promise.resolve();
+  }
+
+  return fetch("/api/bot-status", { cache: "no-store" })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Nao foi possivel carregar o status do bot.");
+      }
+      return response.json();
+    })
+    .then(renderBotStatus)
+    .catch((error) => {
+      botStatusSummary.textContent = error.message;
+    });
+}
+
 function calculateDiscount(oldValue, currentValue) {
   if (oldValue <= 0 || currentValue >= oldValue) {
     return 0;
   }
   return Math.round(((oldValue - currentValue) / oldValue) * 100);
+}
+
+function isRealUrl(value, imageUrl = false) {
+  const markers = ["seu-codigo", "seucodigo", "seu_id", "seu-id", "produto-exemplo", "exemplo-"];
+  const stockImages = ["images.unsplash.com", "pexels.com", "pixabay.com"];
+
+  try {
+    const parsed = new URL(value);
+    const normalized = decodeURIComponent(value).toLowerCase();
+    if (parsed.protocol !== "https:" || markers.some((marker) => normalized.includes(marker))) {
+      return false;
+    }
+    if (!imageUrl && (!parsed.pathname || parsed.pathname === "/")) {
+      return false;
+    }
+    return !imageUrl || !stockImages.some((host) => parsed.hostname.includes(host));
+  } catch {
+    return false;
+  }
 }
 
 function normalizeImportedOffer(offer, fallbackId) {
@@ -126,6 +189,14 @@ function normalizeImportedOffer(offer, fallbackId) {
     return null;
   }
 
+  if (currentValue <= 0 || currentValue >= oldValue) {
+    return null;
+  }
+
+  if (!isRealUrl(offer.affiliateUrl) || !isRealUrl(offer.image, true)) {
+    return null;
+  }
+
   return {
     id: Number(offer.id) || fallbackId,
     title: String(offer.title).trim(),
@@ -136,7 +207,9 @@ function normalizeImportedOffer(offer, fallbackId) {
     discount: Number(offer.discount) || calculateDiscount(oldValue, currentValue),
     image: String(offer.image).trim(),
     affiliateUrl: String(offer.affiliateUrl).trim(),
-    expiresAt: offer.expiresAt || ""
+    expiresAt: offer.expiresAt || "",
+    foundAt: offer.foundAt || new Date().toISOString(),
+    source: offer.source || "manual_import"
   };
 }
 
@@ -165,7 +238,7 @@ function renderAdminOffers() {
   adminOfferList.innerHTML = visibleOffers
     .map((offer) => `
       <article class="admin-offer-card">
-        <img src="${offer.image}" alt="${offer.title}" onerror="this.src='https://images.unsplash.com/photo-1607083206968-13611e3d76db?auto=format&fit=crop&w=600&q=80'">
+        <img src="${offer.image}" alt="${offer.title}" onerror="this.style.visibility='hidden'">
         <div>
           <h3>${offer.title}</h3>
           <p>${offer.store} / ${offer.category} / ${offer.discount}% OFF</p>
@@ -173,6 +246,7 @@ function renderAdminOffers() {
           ${offer.expiresAt ? `<p>Encerra em ${new Date(offer.expiresAt).toLocaleString("pt-BR")}</p>` : ""}
         </div>
         <div class="admin-card-actions">
+          <a href="${offer.affiliateUrl}" target="_blank" rel="sponsored noopener">Abrir link</a>
           <button type="button" data-action="edit" data-id="${offer.id}">Editar</button>
           <button type="button" data-action="delete" data-id="${offer.id}">Excluir</button>
         </div>
@@ -239,7 +313,9 @@ function buildOfferFromForm() {
     discount: calculateDiscount(oldValue, currentValue),
     image: image.value.trim(),
     affiliateUrl: affiliateUrl.value.trim(),
-    expiresAt: fromDatetimeLocalValue(expiresAt.value)
+    expiresAt: fromDatetimeLocalValue(expiresAt.value),
+    foundAt: new Date().toISOString(),
+    source: "manual_admin"
   };
 }
 
@@ -329,6 +405,20 @@ form.addEventListener("submit", (event) => {
   event.preventDefault();
 
   const offer = buildOfferFromForm();
+  if (!isRealUrl(offer.affiliateUrl)) {
+    importStatus.textContent = "Use o link real do produto gerado no seu painel de afiliados.";
+    return;
+  }
+  if (!isRealUrl(offer.image, true)) {
+    importStatus.textContent = "Use a URL HTTPS da imagem oficial do produto.";
+    return;
+  }
+  if (offer.currentPrice <= 0 || offer.currentPrice >= offer.oldPrice) {
+    importStatus.textContent = "O preco atual precisa ser menor que o preco antigo.";
+    return;
+  }
+
+  const previousOffers = [...adminOffers];
   if (editingId) {
     adminOffers = adminOffers.map((item) => (item.id === editingId ? offer : item));
   } else {
@@ -340,6 +430,7 @@ form.addEventListener("submit", (event) => {
       importStatus.textContent = "Oferta salva no servidor.";
     })
     .catch((error) => {
+      adminOffers = previousOffers;
       importStatus.textContent = error.message;
     })
     .finally(() => {
@@ -356,7 +447,10 @@ adminSearch.addEventListener("input", () => {
 cancelEdit.addEventListener("click", resetForm);
 
 resetOffers.addEventListener("click", () => {
-  adminOffers = [...(window.DEFAULT_OFFERS || [])];
+  if (!window.confirm("Remover todas as ofertas cadastradas?")) {
+    return;
+  }
+  adminOffers = [];
   saveAdminOffers()
     .catch((error) => {
       importStatus.textContent = error.message;
@@ -395,7 +489,7 @@ runBotNow.addEventListener("click", () => {
       }
       return response.json();
     })
-    .then(() => loadAdminOffersFromApi())
+    .then(() => Promise.all([loadAdminOffersFromApi(), loadBotStatus()]))
     .then(() => {
       importStatus.textContent = "Bot executado e ofertas atualizadas.";
     })
@@ -411,3 +505,4 @@ logoutAdmin.addEventListener("click", () => {
 });
 
 loadAdminOffersFromApi();
+loadBotStatus();

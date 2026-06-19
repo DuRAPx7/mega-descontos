@@ -1,35 +1,11 @@
 [
   {
-    "id": 101,
-    "title": "Fone Bluetooth com cancelamento de ruido",
-    "store": "Amazon",
-    "category": "Eletronicos",
-    "url": "https://www.amazon.com.br/dp/EXEMPLO-FONE",
-    "oldPrice": 299.9,
-    "currentPrice": 179.9,
-    "image": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80",
-    "expiresAt": "2026-12-31T23:59:00-03:00"
-  },
-  {
-    "id": 102,
-    "title": "Kit cozinha com organizadores",
-    "store": "Shopee",
-    "category": "Casa e Cozinha",
-    "url": "https://shopee.com.br/produto-exemplo",
-    "oldPrice": 129.9,
-    "currentPrice": 74.9,
-    "image": "https://images.unsplash.com/photo-1556911220-bff31c812dba?auto=format&fit=crop&w=600&q=80",
-    "expiresAt": "2026-12-31T23:59:00-03:00"
-  },
-  {
-    "id": 103,
-    "title": "Mochila executiva impermeavel",
+    "type": "mercadolivre_affiliate_link",
+    "enabled": true,
+    "id": "meli-1AU379s",
+    "name": "Moletom Canguru Liso Unissex",
     "store": "Mercado Livre",
     "category": "Moda",
-    "url": "https://www.mercadolivre.com.br/produto-exemplo",
-    "oldPrice": 199.9,
-    "currentPrice": 139.9,
-    "image": "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&q=80",
-    "expiresAt": "2026-12-31T23:59:00-03:00"
+    "affiliateUrl": "https://meli.la/1AU379s"
   }
 ]

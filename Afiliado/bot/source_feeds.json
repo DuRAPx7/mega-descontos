@@ -1,17 +1,23 @@
 [
   {
-    "name": "Feed autorizado exemplo",
-    "enabled": false,
-    "url": "https://exemplo.com/ofertas.json",
-    "store": "Amazon",
-    "category": "Eletronicos",
+    "name": "Feed de produtos Admitad",
+    "enabled": true,
+    "urlEnv": "ADMITAD_PRODUCT_FEED_URL",
+    "format": "auto",
+    "itemTag": "offer",
+    "itemsPath": "items",
+    "store": "Admitad",
+    "category": "Ofertas",
+    "maxItems": 2000,
     "fieldMap": {
-      "title": "title",
+      "id": "@id",
+      "title": "name",
       "url": "url",
-      "oldPrice": "oldPrice",
-      "currentPrice": "currentPrice",
-      "image": "image",
-      "expiresAt": "expiresAt"
+      "affiliateUrl": "url",
+      "oldPrice": "oldprice",
+      "currentPrice": "price",
+      "image": "picture",
+      "expiresAt": "expiry"
     }
   }
 ]
