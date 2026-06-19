@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Feed autorizado exemplo",
+    "enabled": false,
+    "url": "https://exemplo.com/ofertas.json",
+    "store": "Amazon",
+    "category": "Eletronicos",
+    "fieldMap": {
+      "title": "title",
+      "url": "url",
+      "oldPrice": "oldPrice",
+      "currentPrice": "currentPrice",
+      "image": "image",
+      "expiresAt": "expiresAt"
+    }
+  }
+]

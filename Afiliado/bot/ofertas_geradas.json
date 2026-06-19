@@ -1,0 +1,44 @@
+[
+  {
+    "id": 101,
+    "title": "Fone Bluetooth com cancelamento de ruido",
+    "store": "Amazon",
+    "category": "Eletronicos",
+    "oldPrice": 299.9,
+    "currentPrice": 179.9,
+    "discount": 40,
+    "image": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80",
+    "affiliateUrl": "https://www.amazon.com.br/dp/EXEMPLO-FONE?tag=SEU-CODIGO-AQUI",
+    "expiresAt": "2026-12-31T23:59:00-03:00",
+    "foundAt": "2026-06-19T01:23:46.099247+00:00",
+    "source": "discount_bot"
+  },
+  {
+    "id": 102,
+    "title": "Kit cozinha com organizadores",
+    "store": "Shopee",
+    "category": "Casa e Cozinha",
+    "oldPrice": 129.9,
+    "currentPrice": 74.9,
+    "discount": 42,
+    "image": "https://images.unsplash.com/photo-1556911220-bff31c812dba?auto=format&fit=crop&w=600&q=80",
+    "affiliateUrl": "https://shopee.com.br/produto-exemplo?af_siteid=SEU-CODIGO-AQUI",
+    "expiresAt": "2026-12-31T23:59:00-03:00",
+    "foundAt": "2026-06-19T01:23:46.099247+00:00",
+    "source": "discount_bot"
+  },
+  {
+    "id": 103,
+    "title": "Mochila executiva impermeavel",
+    "store": "Mercado Livre",
+    "category": "Moda",
+    "oldPrice": 199.9,
+    "currentPrice": 139.9,
+    "discount": 30,
+    "image": "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&q=80",
+    "affiliateUrl": "https://www.mercadolivre.com.br/produto-exemplo?matt_tool=SEU-CODIGO-AQUI",
+    "expiresAt": "2026-12-31T23:59:00-03:00",
+    "foundAt": "2026-06-19T01:23:46.099247+00:00",
+    "source": "discount_bot"
+  }
+]

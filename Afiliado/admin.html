@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin - Mega Descontos</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="admin.css">
+  </head>
+  <body class="admin-page">
+    <header class="admin-header">
+      <a class="brand" href="index.html" aria-label="Mega Descontos">
+        <span class="brand-icon">%</span>
+        <span>
+          <strong>MEGA</strong>
+          <strong>DESCONTOS</strong>
+        </span>
+      </a>
+      <nav class="admin-nav">
+        <a href="index.html">Ver site</a>
+        <button id="runBotNow" type="button">Rodar bot agora</button>
+        <button id="resetOffers" type="button">Restaurar exemplo</button>
+        <button id="exportOffers" type="button">Exportar JSON</button>
+        <button id="logoutAdmin" type="button">Sair</button>
+      </nav>
+    </header>
+
+    <main class="admin-shell">
+      <section class="admin-intro">
+        <div>
+          <p class="admin-kicker">Painel administrativo</p>
+          <h1>Cadastrar ofertas</h1>
+          <p>Adicione produtos, precos, validade, loja, categoria e seu link de afiliado. As alteracoes ficam salvas no servidor local.</p>
+        </div>
+        <div class="admin-stats">
+          <strong id="adminTotalOffers">0</strong>
+          <span>ofertas cadastradas</span>
+        </div>
+      </section>
+
+      <section class="admin-layout">
+        <form class="offer-form" id="offerForm">
+          <input type="hidden" id="offerId">
+
+          <label>
+            Produto
+            <input id="title" type="text" placeholder="Ex: Fone Bluetooth JBL" required>
+          </label>
+
+          <div class="form-grid">
+            <label>
+              Loja
+              <select id="store" required>
+                <option value="Amazon">Amazon</option>
+                <option value="Shopee">Shopee</option>
+                <option value="Mercado Livre">Mercado Livre</option>
+                <option value="Magalu">Magalu</option>
+                <option value="Outra">Outra</option>
+              </select>
+            </label>
+            <label>
+              Categoria
+              <select id="category" required>
+                <option value="Eletronicos">Eletronicos</option>
+                <option value="Celulares">Celulares</option>
+                <option value="Informatica">Informatica</option>
+                <option value="Casa e Cozinha">Casa e Cozinha</option>
+                <option value="Beleza">Beleza</option>
+                <option value="Moda">Moda</option>
+                <option value="Esportes">Esportes</option>
+                <option value="Livros">Livros</option>
+                <option value="Brinquedos">Brinquedos</option>
+                <option value="Automotivo">Automotivo</option>
+                <option value="Ferramentas">Ferramentas</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              Preco antigo
+              <input id="oldPrice" type="number" min="0" step="0.01" placeholder="209.90" required>
+            </label>
+            <label>
+              Preco atual
+              <input id="currentPrice" type="number" min="0" step="0.01" placeholder="139.90" required>
+            </label>
+          </div>
+
+          <label>
+            Link da imagem
+            <input id="image" type="url" placeholder="https://..." required>
+          </label>
+
+          <label>
+            Link de afiliado
+            <input id="affiliateUrl" type="url" placeholder="https://sualoja.com/produto?tag=seucodigo" required>
+          </label>
+
+          <label>
+            Fim da oferta
+            <input id="expiresAt" type="datetime-local">
+          </label>
+
+          <div class="form-actions">
+            <button class="primary-admin-button" type="submit">Salvar oferta</button>
+            <button id="cancelEdit" type="button">Cancelar</button>
+          </div>
+        </form>
+
+        <section class="admin-list" aria-label="Ofertas cadastradas">
+          <div class="import-panel">
+            <div>
+              <h2>Importar ofertas do bot</h2>
+              <p>Use o arquivo gerado em <code>bot/ofertas_geradas.json</code>.</p>
+            </div>
+            <div class="import-actions">
+              <input id="importOffersFile" type="file" accept=".json,application/json">
+              <button id="mergeImport" type="button">Juntar ofertas</button>
+              <button id="replaceImport" type="button">Substituir tudo</button>
+            </div>
+            <p class="import-status" id="importStatus"></p>
+          </div>
+
+          <div class="admin-list-heading">
+            <h2>Ofertas cadastradas</h2>
+            <input id="adminSearch" type="search" placeholder="Buscar oferta...">
+          </div>
+          <div id="adminOfferList"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="data/offers.js"></script>
+    <script src="admin.js"></script>
+  </body>
+</html>
