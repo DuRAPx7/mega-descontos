@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Entrar - Mega Descontos</title>
+    <script src="theme.js"></script>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="admin.css">
+  </head>
+  <body class="admin-page">
+    <main class="login-shell">
+      <form class="login-card" id="loginForm">
+        <a class="brand" href="index.html" aria-label="Mega Descontos">
+          <span class="brand-icon">%</span>
+          <span>
+            <strong>MEGA</strong>
+            <strong>DESCONTOS</strong>
+          </span>
+        </a>
+        <button class="theme-toggle" type="button" data-theme-toggle>Tema escuro</button>
+        <div>
+          <p class="admin-kicker">Acesso restrito</p>
+          <h1>Entrar no admin</h1>
+          <p>Use seu usuario e senha para cadastrar, editar e remover ofertas.</p>
+        </div>
+        <label>
+          Usuario
+          <input id="username" type="text" autocomplete="username" required>
+        </label>
+        <label>
+          Senha
+          <input id="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button class="primary-admin-button" type="submit">Entrar</button>
+        <p class="import-status" id="loginStatus"></p>
+      </form>
+    </main>
+
+    <script>window.MegaTheme.init();</script>
+    <script src="login.js"></script>
+  </body>
+</html>

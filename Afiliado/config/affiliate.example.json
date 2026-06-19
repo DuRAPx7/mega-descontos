@@ -1,0 +1,10 @@
+{
+  "AMAZON_ASSOCIATE_TAG": "sua_tag_amazon",
+  "MERCADOLIVRE_AFFILIATE_ID": "seu_id_mercado_livre",
+  "MERCADOLIVRE_ACCESS_TOKEN": "seu_token_api_mercado_livre",
+  "MAGALU_PARTNER_ID": "seu_id_magalu",
+  "SHOPEE_AFFILIATE_ID": "seu_id_shopee",
+  "ALIEXPRESS_AFFILIATE_ID": "seu_id_aliexpress",
+  "ADMITAD_SUBID": "seu_subid_admitad",
+  "ADMITAD_PRODUCT_FEED_URL": "url_privada_do_feed_de_produtos"
+}
