@@ -4,6 +4,7 @@ from bot.discount_bot import (
     normalize_product,
     parse_feed_payload,
     parse_mercadolivre_affiliate_page,
+    parse_mercadolivre_deals_page,
     parse_price,
 )
 
@@ -67,6 +68,21 @@ class BotRealLinksTests(unittest.TestCase):
         self.assertEqual(parsed["currentPrice"], 64.9)
         self.assertEqual(parsed["affiliateUrl"], source["affiliateUrl"])
 
+    def test_parses_mercadolivre_public_deals(self) -> None:
+        page = """
+        <div class="andes-card poly-card poly-card--grid-card">
+          <img class="poly-component__picture" src="https://http2.mlstatic.com/produto.webp" alt="Fone Bluetooth JBL">
+          <a class="poly-component__title" href="https://www.mercadolivre.com.br/fone/p/MLB123">Fone Bluetooth JBL</a>
+          <s class="andes-money-amount andes-money-amount--previous" aria-label="Antes: 299 reais com 90 centavos"></s>
+          <span class="andes-money-amount" aria-label="Agora: 179 reais com 90 centavos"></span>
+        </div>
+        """
+        deals = parse_mercadolivre_deals_page(page)
+        self.assertEqual(len(deals), 1)
+        self.assertEqual(deals[0]["id"], "MLB123")
+        self.assertEqual(deals[0]["oldPrice"], 299.9)
+        self.assertEqual(deals[0]["currentPrice"], 179.9)
+
     def test_accepts_affiliate_url_generated_by_platform(self) -> None:
         item = product()
         item["affiliateUrl"] = "https://www.mercadolivre.com.br/social/afiliado/produto-123"
@@ -85,3 +101,4 @@ class BotRealLinksTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

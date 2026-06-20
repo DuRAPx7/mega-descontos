@@ -48,6 +48,60 @@ class ProductMetadataParser(HTMLParser):
             self.metadata[key.lower()] = content
 
 
+def parse_mercadolivre_money_label(value: str | None) -> float | None:
+    match = re.search(r"(\d[\d.]*) reais(?: com (\d{1,2}) centavos)?", value or "", re.IGNORECASE)
+    if not match:
+        return None
+    reais = int(match.group(1).replace(".", ""))
+    cents = int(match.group(2) or 0)
+    return reais + cents / 100
+
+
+class MercadoLivreDealsParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.items: list[dict] = []
+        self.current: dict | None = None
+
+    def finish_current(self) -> None:
+        item = self.current
+        if not item:
+            return
+        if all(item.get(field) for field in ("title", "url", "image", "oldPrice", "currentPrice")):
+            if float(item["currentPrice"]) < float(item["oldPrice"]):
+                self.items.append(item)
+        self.current = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = dict(attrs)
+        classes = set((values.get("class") or "").split())
+        if tag == "div" and "poly-card--grid-card" in classes:
+            self.finish_current()
+            self.current = {"store": "Mercado Livre", "category": "Ofertas"}
+            return
+        if not self.current:
+            return
+        if tag == "img" and "poly-component__picture" in classes:
+            self.current["image"] = normalize_image_url(values.get("src"))
+            self.current["title"] = html.unescape(values.get("alt") or "").strip()
+        elif tag == "a" and "poly-component__title" in classes:
+            url = html.unescape(values.get("href") or "")
+            if url.startswith("https://"):
+                self.current["url"] = url
+                product_match = re.search(r"/(?:p|up)/(?P<id>MLB\d+)", url)
+                self.current["id"] = product_match.group("id") if product_match else url
+        elif tag == "s" and "andes-money-amount--previous" in classes:
+            self.current["oldPrice"] = parse_mercadolivre_money_label(values.get("aria-label"))
+        elif tag == "span" and "andes-money-amount" in classes and not self.current.get("currentPrice"):
+            label = values.get("aria-label") or ""
+            if label.lower().startswith("agora:"):
+                self.current["currentPrice"] = parse_mercadolivre_money_label(label)
+
+    def close(self) -> None:
+        super().close()
+        self.finish_current()
+
+
 def load_affiliate_config() -> dict:
     if not AFFILIATE_CONFIG.exists():
         return {}
@@ -170,6 +224,45 @@ def parse_mercadolivre_affiliate_page(page: str, source: dict) -> dict:
     }
 
 
+def is_mercadolivre_affiliate_url(value: str) -> bool:
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return False
+    hostname = (parsed.hostname or "").lower()
+    return parsed.scheme == "https" and (
+        hostname == "meli.la"
+        or (hostname.endswith("mercadolivre.com.br") and parsed.path.startswith("/social/"))
+    )
+
+
+def fetch_mercadolivre_affiliate_product(affiliate_url: str, category: str = "Ofertas") -> dict:
+    affiliate_url = affiliate_url.strip()
+    if not is_mercadolivre_affiliate_url(affiliate_url):
+        raise ValueError("Use um link de afiliado meli.la gerado no Mercado Livre.")
+
+    request = Request(
+        affiliate_url,
+        headers={
+            "Accept": "text/html,application/xhtml+xml",
+            "Accept-Language": "pt-BR,pt;q=0.9",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/137.0.0.0 Safari/537.36",
+        },
+    )
+    with urlopen(request, timeout=25) as response:
+        final_host = (urlparse(response.geturl()).hostname or "").lower()
+        if final_host != "mercadolivre.com.br" and not final_host.endswith(".mercadolivre.com.br"):
+            raise ValueError("O link nao direcionou para um produto do Mercado Livre.")
+        page = response.read().decode("utf-8", errors="replace")
+
+    source = {
+        "id": affiliate_url,
+        "affiliateUrl": affiliate_url,
+        "category": category or "Ofertas",
+    }
+    return parse_mercadolivre_affiliate_page(page, source)
+
+
 def fetch_mercadolivre_affiliate_link(source: dict) -> list[dict]:
     name = source.get("name") or source.get("affiliateUrl", "Link Mercado Livre")
     if source.get("enabled") is False:
@@ -181,23 +274,39 @@ def fetch_mercadolivre_affiliate_link(source: dict) -> list[dict]:
         record_source_status(name, "mercadolivre_affiliate_link", False, 0, "Link de afiliado ausente.")
         return []
 
-    request = Request(
-        affiliate_url,
-        headers={
-            "Accept": "text/html,application/xhtml+xml",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/137.0.0.0 Safari/537.36",
-        },
-    )
     try:
-        with urlopen(request, timeout=25) as response:
-            page = response.read().decode("utf-8", errors="replace")
-        product = parse_mercadolivre_affiliate_page(page, source)
+        product = fetch_mercadolivre_affiliate_product(
+            affiliate_url,
+            str(source.get("category") or "Ofertas"),
+        )
+        product["id"] = source.get("id") or product["id"]
     except Exception as error:
         record_source_status(name, "mercadolivre_affiliate_link", False, 0, str(error))
         return []
 
     record_source_status(product["title"], "mercadolivre_affiliate_link", True, 1)
     return [product]
+
+
+def parse_mercadolivre_deals_page(page: str, limit: int = 24) -> list[dict]:
+    parser = MercadoLivreDealsParser()
+    parser.feed(page)
+    parser.close()
+    return parser.items[:max(1, min(limit, 48))]
+
+
+def fetch_mercadolivre_deals(limit: int = 24) -> list[dict]:
+    request = Request(
+        "https://www.mercadolivre.com.br/ofertas",
+        headers={
+            "Accept": "text/html,application/xhtml+xml",
+            "Accept-Language": "pt-BR,pt;q=0.9",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/137.0.0.0 Safari/537.36",
+        },
+    )
+    with urlopen(request, timeout=30) as response:
+        page = response.read().decode("utf-8", errors="replace")
+    return parse_mercadolivre_deals_page(page, limit)
 
 
 def load_monitored_products(path: Path) -> list[dict]:
@@ -425,6 +534,13 @@ def load_real_source_products(path: Path) -> list[dict]:
         try:
             if source_type == "mercadolivre_search":
                 products.extend(fetch_mercadolivre_search(source))
+            elif source_type == "mercadolivre_deals":
+                deals = fetch_mercadolivre_deals(int(source.get("limit") or 24))
+                for deal in deals:
+                    deal["category"] = source.get("category", "Ofertas")
+                    deal["sourceType"] = "mercadolivre_deals"
+                products.extend(deals)
+                record_source_status("Melhores ofertas", "mercadolivre_deals", True, len(deals))
             elif source_type == "json_feed":
                 products.extend(fetch_feed_items(source))
         except Exception as error:
@@ -629,3 +745,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

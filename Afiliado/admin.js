@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.6 seconds
-Output:
 const OFFERS_STORAGE_KEY = "mega_descontos_offers";
 const API_OFFERS_URL = "/api/offers";
 
@@ -20,7 +17,6 @@ let adminOffers = [...(window.DEFAULT_OFFERS || [])];
 let offerCandidates = [];
 let editingId = null;
 let adminSearchTerm = "";
-let mercadoLivreIntegration = { configured: false, missing: [] };
 
 const form = document.querySelector("#offerForm");
 const offerId = document.querySelector("#offerId");
@@ -46,9 +42,10 @@ const runBotNow = document.querySelector("#runBotNow");
 const logoutAdmin = document.querySelector("#logoutAdmin");
 const botStatusList = document.querySelector("#botStatusList");
 const botStatusSummary = document.querySelector("#botStatusSummary");
-const mercadoLivreStatus = document.querySelector("#mercadoLivreStatus");
-const connectMercadoLivre = document.querySelector("#connectMercadoLivre");
-const disconnectMercadoLivre = document.querySelector("#disconnectMercadoLivre");
+const mercadoLivreAffiliateLink = document.querySelector("#mercadoLivreAffiliateLink");
+const importMercadoLivreLink = document.querySelector("#importMercadoLivreLink");
+const mercadoLivreImportStatus = document.querySelector("#mercadoLivreImportStatus");
+const refreshMercadoLivreDeals = document.querySelector("#refreshMercadoLivreDeals");
 const candidateList = document.querySelector("#candidateList");
 const candidateStatus = document.querySelector("#candidateStatus");
 
@@ -158,7 +155,7 @@ function renderCandidates() {
         <div class="candidate-actions">
           <input type="url" data-candidate-link="${candidate.id}" placeholder="Cole o link meli.la deste produto">
           <a href="${escapeHtml(candidate.productUrl)}" target="_blank" rel="noopener">Abrir produto</a>
-          <button type="button" data-activate-candidate="${candidate.id}">Publicar</button>
+          <button type="button" data-activate-candidate="${candidate.id}">Buscar dados e publicar</button>
         </div>
       </article>
     `)
@@ -180,12 +177,14 @@ function loadCandidates() {
     return Promise.resolve();
   }
 
-  return fetch("/api/candidates", { cache: "no-store" })
-    .then((response) => {
+  candidateStatus.textContent = "Buscando as melhores ofertas...";
+  return fetch("/api/mercadolivre/deals", { cache: "no-store" })
+    .then((response) => response.json().then((payload) => ({ response, payload })))
+    .then(({ response, payload }) => {
       if (!response.ok) {
-        throw new Error("Nao foi possivel carregar as ofertas encontradas.");
+        throw new Error(payload.error || "Nao foi possivel carregar as ofertas do Mercado Livre.");
       }
-      return response.json();
+      return payload;
     })
     .then((payload) => {
       offerCandidates = payload.candidates || [];
@@ -196,61 +195,54 @@ function loadCandidates() {
     });
 }
 
+function importMercadoLivreOffer(affiliateLink, category, statusElement) {
+  if (!isMercadoLivreAffiliateUrl(affiliateLink)) {
+    statusElement.textContent = "Cole um link meli.la gerado no painel de afiliados do Mercado Livre.";
+    return Promise.reject(new Error("Link de afiliado invalido."));
+  }
+
+  statusElement.textContent = "Buscando titulo, imagem e precos no link...";
+  const previousOffers = [...adminOffers];
+  return fetch("/api/mercadolivre/import-link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ affiliateUrl: affiliateLink, category: category || "Ofertas" })
+  })
+    .then((response) => response.json().then((payload) => ({ response, payload })))
+    .then(({ response, payload }) => {
+      if (!response.ok) {
+        throw new Error(payload.error || "Nao foi possivel ler esse link.");
+      }
+      const offer = payload.offer;
+      adminOffers = [offer, ...adminOffers.filter((item) => String(item.id) !== String(offer.id))];
+      return saveAdminOffers().then(() => offer);
+    })
+    .then(() => {
+      statusElement.textContent = "Oferta publicada com os dados reais do Mercado Livre.";
+    })
+    .catch((error) => {
+      adminOffers = previousOffers;
+      statusElement.textContent = error.message;
+      throw error;
+    })
+    .finally(() => {
+      renderAdminOffers();
+    });
+}
+
 function activateCandidate(candidateId) {
   const candidate = offerCandidates.find((item) => Number(item.id) === candidateId);
   const input = document.querySelector(`[data-candidate-link="${candidateId}"]`);
   const affiliateLink = input?.value.trim() || "";
-  if (!candidate || !isMercadoLivreAffiliateUrl(affiliateLink)) {
-    candidateStatus.textContent = "Cole o link meli.la gerado para esse produto.";
+  if (!candidate) {
     return;
   }
-
-  const previousOffers = [...adminOffers];
-  const offer = {
-    ...candidate,
-    affiliateUrl: affiliateLink,
-    foundAt: new Date().toISOString(),
-    source: "mercadolivre_candidate"
-  };
-  adminOffers = [offer, ...adminOffers.filter((item) => String(item.id) !== String(offer.id))];
-  saveAdminOffers()
+  importMercadoLivreOffer(affiliateLink, candidate.category, candidateStatus)
     .then(() => {
-      candidateStatus.textContent = "Oferta publicada com o link afiliado.";
-    })
-    .catch((error) => {
-      adminOffers = previousOffers;
-      candidateStatus.textContent = error.message;
-    })
-    .finally(() => {
-      renderAdminOffers();
+      offerCandidates = offerCandidates.filter((item) => Number(item.id) !== candidateId);
       renderCandidates();
-    });
-}
-
-function loadMercadoLivreIntegration() {
-  return fetch("/api/integrations/mercadolivre", { cache: "no-store" })
-    .then((response) => response.json().then((payload) => ({ response, payload })))
-    .then(({ response, payload }) => {
-      if (!response.ok) {
-        throw new Error(payload.error || "Nao foi possivel verificar o Mercado Livre.");
-      }
-      mercadoLivreIntegration = payload;
-      if (!payload.configured) {
-        mercadoLivreStatus.textContent = `Configure no Render: ${payload.missing.join(", ")}.`;
-        connectMercadoLivre.disabled = false;
-        disconnectMercadoLivre.hidden = true;
-        return;
-      }
-      connectMercadoLivre.disabled = false;
-      connectMercadoLivre.hidden = payload.connected;
-      disconnectMercadoLivre.hidden = !payload.connected;
-      mercadoLivreStatus.textContent = payload.connected
-        ? `Conta conectada${payload.userId ? ` / usuario ${payload.userId}` : ""}. O token sera renovado automaticamente.`
-        : "Configuracao pronta. Conecte sua conta para liberar as buscas.";
     })
-    .catch((error) => {
-      mercadoLivreStatus.textContent = error.message;
-    });
+    .catch(() => {});
 }
 
 function renderBotStatus(status) {
@@ -647,46 +639,22 @@ logoutAdmin.addEventListener("click", () => {
   });
 });
 
-connectMercadoLivre.addEventListener("click", () => {
-  if (!mercadoLivreIntegration.configured) {
-    const missing = mercadoLivreIntegration.missing || [];
-    const message = missing.length
-      ? `Falta configurar no Render: ${missing.join(", ")}.`
-      : "A configuracao do Mercado Livre ainda esta sendo verificada. Aguarde um instante e tente novamente.";
-    mercadoLivreStatus.textContent = message;
-    importStatus.textContent = message;
-    return;
-  }
-
-  connectMercadoLivre.disabled = true;
-  connectMercadoLivre.textContent = "Abrindo Mercado Livre...";
-  mercadoLivreStatus.textContent = "Redirecionando para a autorizacao do Mercado Livre...";
-  window.location.assign("/api/mercadolivre/connect");
-});
-
-disconnectMercadoLivre.addEventListener("click", () => {
-  fetch("/api/integrations/mercadolivre/disconnect", { method: "POST" })
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error("Nao foi possivel desconectar a conta.");
-      }
-      return Promise.all([loadMercadoLivreIntegration(), loadCandidates()]);
+importMercadoLivreLink.addEventListener("click", () => {
+  const affiliateLink = mercadoLivreAffiliateLink.value.trim();
+  importMercadoLivreOffer(affiliateLink, "Ofertas", mercadoLivreImportStatus)
+    .then(() => {
+      mercadoLivreAffiliateLink.value = "";
     })
-    .catch((error) => {
-      mercadoLivreStatus.textContent = error.message;
-    });
+    .catch(() => {});
 });
 
-const mercadoLivreResult = new URLSearchParams(window.location.search).get("ml");
-if (mercadoLivreResult === "connected") {
-  importStatus.textContent = "Mercado Livre conectado. A primeira busca foi iniciada.";
-} else if (mercadoLivreResult === "not-configured") {
-  importStatus.textContent = "Configure as credenciais OAuth do Mercado Livre no Render.";
-} else if (mercadoLivreResult === "error") {
-  importStatus.textContent = "Nao foi possivel concluir a conexao com o Mercado Livre.";
-}
+refreshMercadoLivreDeals.addEventListener("click", () => {
+  refreshMercadoLivreDeals.disabled = true;
+  loadCandidates().finally(() => {
+    refreshMercadoLivreDeals.disabled = false;
+  });
+});
 
 loadAdminOffersFromApi().then(loadCandidates);
 loadBotStatus();
-loadMercadoLivreIntegration();
 

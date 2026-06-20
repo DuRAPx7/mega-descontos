@@ -1,34 +1,10 @@
 [
   {
-    "type": "mercadolivre_search",
+    "type": "mercadolivre_deals",
     "enabled": true,
     "store": "Mercado Livre",
-    "category": "Eletronicos",
-    "query": "fone bluetooth",
-    "limit": 12
-  },
-  {
-    "type": "mercadolivre_search",
-    "enabled": true,
-    "store": "Mercado Livre",
-    "category": "Casa e Cozinha",
-    "query": "air fryer",
-    "limit": 12
-  },
-  {
-    "type": "mercadolivre_search",
-    "enabled": true,
-    "store": "Mercado Livre",
-    "category": "Celulares",
-    "query": "smartphone",
-    "limit": 12
-  },
-  {
-    "type": "mercadolivre_search",
-    "enabled": true,
-    "store": "Mercado Livre",
-    "category": "Informatica",
-    "query": "notebook",
-    "limit": 12
+    "category": "Ofertas",
+    "limit": 24
   }
 ]
+

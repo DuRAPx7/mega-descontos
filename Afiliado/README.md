@@ -69,10 +69,6 @@ O bot ja esta preparado para estas variaveis de ambiente:
 ```text
 AMAZON_ASSOCIATE_TAG=sua_tag_amazon
 MERCADOLIVRE_AFFILIATE_ID=seu_id_mercado_livre
-MERCADOLIVRE_ACCESS_TOKEN=seu_token_api_mercado_livre
-MERCADOLIVRE_CLIENT_ID=id_da_aplicacao
-MERCADOLIVRE_CLIENT_SECRET=chave_secreta_da_aplicacao
-MERCADOLIVRE_REDIRECT_URI=https://mega-descontos.onrender.com/api/mercadolivre/callback
 MAGALU_PARTNER_ID=seu_id_magalu
 SHOPEE_AFFILIATE_ID=seu_id_shopee
 ALIEXPRESS_AFFILIATE_ID=seu_id_aliexpress
@@ -82,9 +78,8 @@ Para teste local, voce tambem pode copiar `config/affiliate.example.json` para
 `config/affiliate.json` e preencher seus dados. Esse arquivo fica ignorado pelo
 Git para nao publicar suas credenciais.
 
-`bot/real_sources.json` ja traz buscas reais do Mercado Livre. Para publicar
-ofertas reais dessa fonte, configure `MERCADOLIVRE_ACCESS_TOKEN` se a API
-responder 403 no ambiente de hospedagem.
+`bot/real_sources.json` consulta a pagina publica de melhores ofertas do
+Mercado Livre e as exibe como candidatos no painel Admin.
 
 `bot/source_feeds.json` aceita feeds/API JSON autorizados de Amazon, Shopee,
 Magalu ou AliExpress. Basta mapear os campos `title`, `url`,
@@ -112,21 +107,14 @@ generico nao garante o rastreamento da comissao.
 
 ### Automacao de ofertas
 
-O Mercado Livre funciona em dois fluxos:
+O Mercado Livre funciona sem OAuth:
 
-- links `meli.la`: o bot monitora automaticamente titulo, imagem e precos dos
-  links gerados no painel de afiliados do Mercado Livre;
-- OAuth oficial: o Admin conecta sua conta e o bot busca produtos em oferta,
-  salvando-os como candidatos ate receberem o link `meli.la`.
+- o painel mostra as melhores ofertas publicas como candidatos;
+- voce abre o produto e gera o link no painel de afiliados;
+- ao colar o `meli.la`, o servidor busca titulo, imagem e precos novamente no
+  proprio link e publica a oferta com sua URL de afiliado;
+- links publicados continuam sendo monitorados pelo bot.
 
-Cadastre no aplicativo do Mercado Livre esta URL de retorno:
-
-```text
-https://mega-descontos.onrender.com/api/mercadolivre/callback
-```
-
-Depois configure `MERCADOLIVRE_CLIENT_ID`, `MERCADOLIVRE_CLIENT_SECRET` e
-`MERCADOLIVRE_REDIRECT_URI` no Render. O bot renova o token automaticamente.
 O bot consulta as fontes ao iniciar e depois a cada 10 minutos. Produtos que
 somem do feed, ficam sem desconto ou deixam de responder sao retirados do site.
 
@@ -182,3 +170,4 @@ Acesse `/healthz` para conferir o armazenamento ativo. Em producao, o retorno
 correto deve conter `"storage": "postgresql"` e `"persistent": true`.
 
 Nunca publique a `DATABASE_URL` em arquivos do Git ou em capturas de tela.
+

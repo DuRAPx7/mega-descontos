@@ -245,12 +245,13 @@
 }
 
 .integration-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
   gap: 10px;
 }
 
 .integration-actions button,
+.integration-actions input,
 .candidate-actions button,
 .candidate-actions input {
   min-height: 38px;
@@ -267,11 +268,23 @@
   font-weight: 900;
 }
 
-#connectMercadoLivre,
+#importMercadoLivreLink,
 .candidate-actions button {
   border-color: var(--green);
   background: var(--green);
   color: #fff;
+}
+
+#refreshMercadoLivreDeals {
+  justify-self: start;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  padding: 7px 12px;
+  cursor: pointer;
+  font-weight: 800;
 }
 
 .candidate-list {
@@ -456,6 +469,10 @@
     grid-template-columns: 1fr;
   }
 
+  .integration-actions {
+    grid-template-columns: 1fr;
+  }
+
   .admin-stats {
     width: 100%;
     min-height: 120px;
@@ -473,3 +490,4 @@
     height: 180px;
   }
 }
+
