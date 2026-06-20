@@ -20,11 +20,12 @@
   }
 
   function ensureBrandIcon() {
-    const iconPath = "assets/mega-descontos-icon.png?v=20260620-2";
+    const brandIconPath = "assets/mega-descontos-icon.png?v=20260620-3";
+    const faviconPath = "favicon.ico?v=20260620-3";
 
     document.querySelectorAll(".brand-icon").forEach((oldIcon) => {
       const icon = document.createElement("img");
-      icon.src = iconPath;
+      icon.src = brandIconPath;
       icon.alt = "";
       icon.setAttribute("aria-hidden", "true");
       icon.style.width = "44px";
@@ -37,22 +38,22 @@
 
     document.querySelectorAll("link[rel='icon'], link[rel='shortcut icon']").forEach((favicon) => {
       favicon.rel = "icon";
-      favicon.type = "image/png";
-      favicon.href = iconPath;
+      favicon.type = "image/x-icon";
+      favicon.href = faviconPath;
     });
 
     if (!document.querySelector("link[rel='icon']")) {
       const favicon = document.createElement("link");
       favicon.rel = "icon";
-      favicon.type = "image/png";
-      favicon.href = iconPath;
+      favicon.type = "image/x-icon";
+      favicon.href = faviconPath;
       document.head.appendChild(favicon);
     }
 
     if (!document.querySelector("link[rel='apple-touch-icon']")) {
       const touchIcon = document.createElement("link");
       touchIcon.rel = "apple-touch-icon";
-      touchIcon.href = iconPath;
+      touchIcon.href = brandIconPath;
       document.head.appendChild(touchIcon);
     }
   }
