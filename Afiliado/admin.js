@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 0.6 seconds
+Output:
 const OFFERS_STORAGE_KEY = "mega_descontos_offers";
 const API_OFFERS_URL = "/api/offers";
 
@@ -17,6 +20,7 @@ let adminOffers = [...(window.DEFAULT_OFFERS || [])];
 let offerCandidates = [];
 let editingId = null;
 let adminSearchTerm = "";
+let mercadoLivreIntegration = { configured: false, missing: [] };
 
 const form = document.querySelector("#offerForm");
 const offerId = document.querySelector("#offerId");
@@ -230,9 +234,10 @@ function loadMercadoLivreIntegration() {
       if (!response.ok) {
         throw new Error(payload.error || "Nao foi possivel verificar o Mercado Livre.");
       }
+      mercadoLivreIntegration = payload;
       if (!payload.configured) {
         mercadoLivreStatus.textContent = `Configure no Render: ${payload.missing.join(", ")}.`;
-        connectMercadoLivre.disabled = true;
+        connectMercadoLivre.disabled = false;
         disconnectMercadoLivre.hidden = true;
         return;
       }
@@ -643,7 +648,20 @@ logoutAdmin.addEventListener("click", () => {
 });
 
 connectMercadoLivre.addEventListener("click", () => {
-  window.location.href = "/api/mercadolivre/connect";
+  if (!mercadoLivreIntegration.configured) {
+    const missing = mercadoLivreIntegration.missing || [];
+    const message = missing.length
+      ? `Falta configurar no Render: ${missing.join(", ")}.`
+      : "A configuracao do Mercado Livre ainda esta sendo verificada. Aguarde um instante e tente novamente.";
+    mercadoLivreStatus.textContent = message;
+    importStatus.textContent = message;
+    return;
+  }
+
+  connectMercadoLivre.disabled = true;
+  connectMercadoLivre.textContent = "Abrindo Mercado Livre...";
+  mercadoLivreStatus.textContent = "Redirecionando para a autorizacao do Mercado Livre...";
+  window.location.assign("/api/mercadolivre/connect");
 });
 
 disconnectMercadoLivre.addEventListener("click", () => {
@@ -671,3 +689,4 @@ if (mercadoLivreResult === "connected") {
 loadAdminOffersFromApi().then(loadCandidates);
 loadBotStatus();
 loadMercadoLivreIntegration();
+
