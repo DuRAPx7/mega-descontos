@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import importlib.util
 import json
 import os
@@ -9,7 +11,9 @@ from datetime import datetime, timezone
 from http import cookies
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.error import HTTPError
+from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.request import Request, urlopen
 
 from offer_validation import partition_valid_offers
 from storage import offer_storage
@@ -26,6 +30,12 @@ SESSION_COOKIE = "mega_admin_session"
 SESSIONS: set[str] = set()
 HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8000"))
+MERCADOLIVRE_PROVIDER = "mercadolivre"
+MERCADOLIVRE_AUTH_URL = "https://auth.mercadolivre.com.br/authorization"
+MERCADOLIVRE_TOKEN_URL = "https://api.mercadolibre.com/oauth/token"
+OAUTH_STATES: dict[str, dict] = {}
+ML_TOKEN_LOCK = threading.Lock()
+BOT_RUN_LOCK = threading.Lock()
 
 
 def load_discount_bot():
@@ -182,8 +192,125 @@ def clear_session_cookie(handler: SimpleHTTPRequestHandler) -> None:
     handler.send_header("Set-Cookie", f"{SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0")
 
 
-def run_bot_once() -> None:
+def redirect(handler: SimpleHTTPRequestHandler, location: str) -> None:
+    handler.send_response(302)
+    handler.send_header("Location", location)
+    handler.send_header("Cache-Control", "no-store")
+    handler.end_headers()
+
+
+def mercadolivre_oauth_config() -> dict:
+    return {
+        "client_id": os.environ.get("MERCADOLIVRE_CLIENT_ID", "").strip(),
+        "client_secret": os.environ.get("MERCADOLIVRE_CLIENT_SECRET", "").strip(),
+        "redirect_uri": os.environ.get("MERCADOLIVRE_REDIRECT_URI", "").strip(),
+    }
+
+
+def mercadolivre_configured() -> bool:
+    return all(mercadolivre_oauth_config().values())
+
+
+def store_mercadolivre_tokens(payload: dict, previous: dict | None = None) -> dict:
+    access_token = str(payload.get("access_token") or "")
+    if not access_token:
+        raise ValueError("O Mercado Livre nao retornou um access_token.")
+
+    previous = previous or {}
+    expires_in = max(int(payload.get("expires_in") or 21600), 60)
+    stored = {
+        "accessToken": access_token,
+        "refreshToken": str(payload.get("refresh_token") or previous.get("refreshToken") or ""),
+        "expiresAt": time.time() + expires_in,
+        "userId": payload.get("user_id") or previous.get("userId"),
+        "scope": payload.get("scope") or previous.get("scope") or "",
+    }
+    offer_storage.set_integration(MERCADOLIVRE_PROVIDER, stored)
+    return stored
+
+
+def request_mercadolivre_token(fields: dict) -> dict:
+    body = urlencode(fields).encode("utf-8")
+    request = Request(
+        MERCADOLIVRE_TOKEN_URL,
+        data=body,
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "MegaDescontos/1.0",
+        },
+        method="POST",
+    )
     try:
+        with urlopen(request, timeout=25) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except HTTPError as error:
+        try:
+            details = json.loads(error.read().decode("utf-8")).get("message", "")
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            details = ""
+        raise RuntimeError(f"Falha OAuth do Mercado Livre ({error.code}). {details}".strip()) from error
+
+
+def get_mercadolivre_access_token() -> str:
+    ensure_offers_db()
+    integration = offer_storage.get_integration(MERCADOLIVRE_PROVIDER)
+    if not integration:
+        return os.environ.get("MERCADOLIVRE_ACCESS_TOKEN", "").strip()
+
+    if integration.get("accessToken") and float(integration.get("expiresAt") or 0) > time.time() + 120:
+        return str(integration["accessToken"])
+
+    with ML_TOKEN_LOCK:
+        integration = offer_storage.get_integration(MERCADOLIVRE_PROVIDER) or {}
+        if integration.get("accessToken") and float(integration.get("expiresAt") or 0) > time.time() + 120:
+            return str(integration["accessToken"])
+
+        config = mercadolivre_oauth_config()
+        refresh_token = str(integration.get("refreshToken") or "")
+        if not refresh_token or not all(config.values()):
+            return ""
+
+        payload = request_mercadolivre_token(
+            {
+                "grant_type": "refresh_token",
+                "client_id": config["client_id"],
+                "client_secret": config["client_secret"],
+                "refresh_token": refresh_token,
+            }
+        )
+        return str(store_mercadolivre_tokens(payload, integration)["accessToken"])
+
+
+def mercadolivre_integration_status() -> dict:
+    ensure_offers_db()
+    integration = offer_storage.get_integration(MERCADOLIVRE_PROVIDER) or {}
+    config = mercadolivre_oauth_config()
+    variable_names = {
+        "client_id": "MERCADOLIVRE_CLIENT_ID",
+        "client_secret": "MERCADOLIVRE_CLIENT_SECRET",
+        "redirect_uri": "MERCADOLIVRE_REDIRECT_URI",
+    }
+    missing = [variable_names[name] for name, value in config.items() if not value]
+    connected = bool(integration.get("refreshToken") or os.environ.get("MERCADOLIVRE_ACCESS_TOKEN"))
+    return {
+        "configured": not missing,
+        "connected": connected,
+        "missing": missing,
+        "userId": integration.get("userId"),
+        "expiresAt": integration.get("expiresAt"),
+    }
+
+
+def run_bot_once() -> None:
+    if not BOT_RUN_LOCK.acquire(blocking=False):
+        print("[Mega Descontos] Uma execucao do bot ja esta em andamento.")
+        return
+    try:
+        previous_access_token = os.environ.get("MERCADOLIVRE_ACCESS_TOKEN")
+        access_token = get_mercadolivre_access_token()
+        if access_token:
+            os.environ["MERCADOLIVRE_ACCESS_TOKEN"] = access_token
         bot = load_discount_bot()
         existing_offers = read_offers()
         offers = bot.generate_offers(
@@ -204,6 +331,13 @@ def run_bot_once() -> None:
         print(f"[Mega Descontos] Bot publicou {len(offers)} ofertas. Expiradas removidas: {removed}.")
     except Exception as error:
         print(f"[Mega Descontos] Erro no bot: {error}")
+    finally:
+        if 'previous_access_token' in locals():
+            if previous_access_token is None:
+                os.environ.pop("MERCADOLIVRE_ACCESS_TOKEN", None)
+            else:
+                os.environ["MERCADOLIVRE_ACCESS_TOKEN"] = previous_access_token
+        BOT_RUN_LOCK.release()
 
 
 def start_bot_scheduler() -> None:
@@ -258,6 +392,75 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
             write_json(self, {"candidates": read_candidates()})
             return
 
+        if parsed.path == "/api/integrations/mercadolivre":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            write_json(self, mercadolivre_integration_status())
+            return
+
+        if parsed.path == "/api/mercadolivre/connect":
+            if not is_authenticated(self):
+                redirect(self, "/login.html")
+                return
+            config = mercadolivre_oauth_config()
+            if not all(config.values()):
+                redirect(self, "/admin.html?ml=not-configured")
+                return
+            now = time.time()
+            for state, oauth_attempt in list(OAUTH_STATES.items()):
+                if float(oauth_attempt.get("expiresAt") or 0) <= now:
+                    OAUTH_STATES.pop(state, None)
+            state = secrets.token_urlsafe(32)
+            code_verifier = secrets.token_urlsafe(64)
+            code_challenge = base64.urlsafe_b64encode(
+                hashlib.sha256(code_verifier.encode("ascii")).digest()
+            ).rstrip(b"=").decode("ascii")
+            OAUTH_STATES[state] = {
+                "expiresAt": now + 600,
+                "codeVerifier": code_verifier,
+            }
+            authorization_url = MERCADOLIVRE_AUTH_URL + "?" + urlencode(
+                {
+                    "response_type": "code",
+                    "client_id": config["client_id"],
+                    "redirect_uri": config["redirect_uri"],
+                    "state": state,
+                    "code_challenge": code_challenge,
+                    "code_challenge_method": "S256",
+                }
+            )
+            redirect(self, authorization_url)
+            return
+
+        if parsed.path == "/api/mercadolivre/callback":
+            query = parse_qs(parsed.query)
+            state = str((query.get("state") or [""])[0])
+            code = str((query.get("code") or [""])[0])
+            oauth_attempt = OAUTH_STATES.pop(state, {})
+            if not state or float(oauth_attempt.get("expiresAt") or 0) <= time.time() or not code:
+                write_json(self, {"error": "Retorno OAuth invalido ou expirado."}, 400)
+                return
+            try:
+                config = mercadolivre_oauth_config()
+                payload = request_mercadolivre_token(
+                    {
+                        "grant_type": "authorization_code",
+                        "client_id": config["client_id"],
+                        "client_secret": config["client_secret"],
+                        "code": code,
+                        "redirect_uri": config["redirect_uri"],
+                        "code_verifier": oauth_attempt["codeVerifier"],
+                    }
+                )
+                store_mercadolivre_tokens(payload)
+                threading.Thread(target=run_bot_once, daemon=True).start()
+                redirect(self, "/admin.html?ml=connected")
+            except Exception as error:
+                print(f"[Mega Descontos] Erro OAuth Mercado Livre: {error}")
+                redirect(self, "/admin.html?ml=error")
+            return
+
         if parsed.path == "/admin.html" and not is_authenticated(self):
             self.send_response(302)
             self.send_header("Location", "/login.html")
@@ -309,6 +512,15 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 write_json(self, {"error": "Nao autorizado."}, 401)
                 return
             run_bot_once()
+            write_json(self, {"ok": True})
+            return
+
+        if parsed.path == "/api/integrations/mercadolivre/disconnect":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            offer_storage.delete_integration(MERCADOLIVRE_PROVIDER)
+            write_candidates([])
             write_json(self, {"ok": True})
             return
 
