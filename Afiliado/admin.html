@@ -58,7 +58,6 @@
                 <option value="Mercado Livre">Mercado Livre</option>
                 <option value="Magalu">Magalu</option>
                 <option value="AliExpress">AliExpress</option>
-                <option value="Admitad">Admitad</option>
                 <option value="Outra">Outra</option>
               </select>
             </label>
@@ -114,6 +113,17 @@
         </form>
 
         <section class="admin-list" aria-label="Ofertas cadastradas">
+          <div class="import-panel integration-panel">
+            <div>
+              <h2>Mercado Livre</h2>
+              <p id="mercadoLivreStatus">Verificando conexao...</p>
+            </div>
+            <div class="integration-actions">
+              <button id="connectMercadoLivre" type="button">Conectar Mercado Livre</button>
+              <button id="disconnectMercadoLivre" type="button" hidden>Desconectar</button>
+            </div>
+          </div>
+
           <div class="import-panel">
             <div>
               <h2>Status do bot</h2>
@@ -121,6 +131,15 @@
             </div>
             <div class="bot-status-list" id="botStatusList"></div>
             <p class="import-status" id="botStatusSummary"></p>
+          </div>
+
+          <div class="import-panel candidate-panel">
+            <div>
+              <h2>Ofertas encontradas</h2>
+              <p>O bot encontra os produtos. Cole o link <code>meli.la</code> para publicar com sua comissao.</p>
+            </div>
+            <div class="candidate-list" id="candidateList"></div>
+            <p class="import-status" id="candidateStatus"></p>
           </div>
 
           <div class="import-panel">

@@ -86,6 +86,15 @@ class OfferStorage:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS integrations (
+                provider TEXT PRIMARY KEY,
+                payload TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
 
         placeholder = self._placeholder()
         migrated = connection.execute(
@@ -162,6 +171,46 @@ class OfferStorage:
                     cursor.close()
             connection.commit()
         return len(unique_candidates)
+
+    def get_integration(self, provider: str) -> dict | None:
+        placeholder = self._placeholder()
+        with self._lock, closing(self._connect()) as connection:
+            row = connection.execute(
+                f"SELECT payload FROM integrations WHERE provider = {placeholder}",
+                (provider,),
+            ).fetchone()
+        if not row:
+            return None
+        try:
+            payload = json.loads(row[0])
+        except (TypeError, json.JSONDecodeError):
+            return None
+        return payload if isinstance(payload, dict) else None
+
+    def set_integration(self, provider: str, payload: dict) -> None:
+        placeholder = self._placeholder()
+        serialized = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        updated_at = datetime.now(timezone.utc).isoformat()
+        with self._lock, closing(self._connect()) as connection:
+            connection.execute(
+                f"DELETE FROM integrations WHERE provider = {placeholder}",
+                (provider,),
+            )
+            connection.execute(
+                "INSERT INTO integrations (provider, payload, updated_at) "
+                f"VALUES ({placeholder}, {placeholder}, {placeholder})",
+                (provider, serialized, updated_at),
+            )
+            connection.commit()
+
+    def delete_integration(self, provider: str) -> None:
+        placeholder = self._placeholder()
+        with self._lock, closing(self._connect()) as connection:
+            connection.execute(
+                f"DELETE FROM integrations WHERE provider = {placeholder}",
+                (provider,),
+            )
+            connection.commit()
 
     @staticmethod
     def _decode_payload_rows(rows) -> list[dict]:
