@@ -151,7 +151,152 @@ function renderCandidates() {
           <p>${escapeHtml(candidate.store)} / ${escapeHtml(candidate.category)} / ${candidate.discount}% OFF</p>
           <p>${moneyFormatter.format(candidate.currentPrice)} antes ${moneyFormatter.format(candidate.oldPrice)}</p>
         </div>
-        <div class=…1352 tokens truncated…ealUrl(value, imageUrl = false) {
+        <div class="candidate-actions">
+          <input type="url" data-candidate-link="${candidate.id}" placeholder="Cole o link meli.la deste produto">
+          <a href="${escapeHtml(candidate.productUrl)}" target="_blank" rel="noopener">Abrir produto</a>
+          <button type="button" data-activate-candidate="${candidate.id}">Publicar</button>
+        </div>
+      </article>
+    `)
+    .join("");
+
+  if (!visibleCandidates.length) {
+    candidateList.innerHTML = "<p>Nenhuma oferta candidata no momento.</p>";
+  }
+
+  document.querySelectorAll("[data-activate-candidate]").forEach((button) => {
+    button.addEventListener("click", () => activateCandidate(Number(button.dataset.activateCandidate)));
+  });
+}
+
+function loadCandidates() {
+  if (!isHttpPage()) {
+    offerCandidates = [];
+    renderCandidates();
+    return Promise.resolve();
+  }
+
+  return fetch("/api/candidates", { cache: "no-store" })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Nao foi possivel carregar as ofertas encontradas.");
+      }
+      return response.json();
+    })
+    .then((payload) => {
+      offerCandidates = payload.candidates || [];
+      renderCandidates();
+    })
+    .catch((error) => {
+      candidateStatus.textContent = error.message;
+    });
+}
+
+function activateCandidate(candidateId) {
+  const candidate = offerCandidates.find((item) => Number(item.id) === candidateId);
+  const input = document.querySelector(`[data-candidate-link="${candidateId}"]`);
+  const affiliateLink = input?.value.trim() || "";
+  if (!candidate || !isMercadoLivreAffiliateUrl(affiliateLink)) {
+    candidateStatus.textContent = "Cole o link meli.la gerado para esse produto.";
+    return;
+  }
+
+  const previousOffers = [...adminOffers];
+  const offer = {
+    ...candidate,
+    affiliateUrl: affiliateLink,
+    foundAt: new Date().toISOString(),
+    source: "mercadolivre_candidate"
+  };
+  adminOffers = [offer, ...adminOffers.filter((item) => String(item.id) !== String(offer.id))];
+  saveAdminOffers()
+    .then(() => {
+      candidateStatus.textContent = "Oferta publicada com o link afiliado.";
+    })
+    .catch((error) => {
+      adminOffers = previousOffers;
+      candidateStatus.textContent = error.message;
+    })
+    .finally(() => {
+      renderAdminOffers();
+      renderCandidates();
+    });
+}
+
+function loadMercadoLivreIntegration() {
+  return fetch("/api/integrations/mercadolivre", { cache: "no-store" })
+    .then((response) => response.json().then((payload) => ({ response, payload })))
+    .then(({ response, payload }) => {
+      if (!response.ok) {
+        throw new Error(payload.error || "Nao foi possivel verificar o Mercado Livre.");
+      }
+      if (!payload.configured) {
+        mercadoLivreStatus.textContent = `Configure no Render: ${payload.missing.join(", ")}.`;
+        connectMercadoLivre.disabled = true;
+        disconnectMercadoLivre.hidden = true;
+        return;
+      }
+      connectMercadoLivre.disabled = false;
+      connectMercadoLivre.hidden = payload.connected;
+      disconnectMercadoLivre.hidden = !payload.connected;
+      mercadoLivreStatus.textContent = payload.connected
+        ? `Conta conectada${payload.userId ? ` / usuario ${payload.userId}` : ""}. O token sera renovado automaticamente.`
+        : "Configuracao pronta. Conecte sua conta para liberar as buscas.";
+    })
+    .catch((error) => {
+      mercadoLivreStatus.textContent = error.message;
+    });
+}
+
+function renderBotStatus(status) {
+  const sources = status.sources || [];
+  botStatusSummary.textContent = status.checkedAt
+    ? `Ultima execucao: ${new Date(status.checkedAt).toLocaleString("pt-BR")} / ${status.generatedOffers || 0} publicadas / ${status.rejectedOffers || 0} rejeitadas.`
+    : "O bot ainda nao registrou uma execucao.";
+
+  if (!sources.length) {
+    botStatusList.innerHTML = "<p>Nenhuma fonte registrada ainda.</p>";
+    return;
+  }
+
+  botStatusList.innerHTML = sources
+    .map((source) => `
+      <article class="bot-status-item ${source.ok ? "ok" : "error"}">
+        <strong>${source.name || source.type}</strong>
+        <span>${source.ok ? `${source.count || 0} itens capturados` : `Erro: ${source.error}`}</span>
+        <span>${source.type}</span>
+      </article>
+    `)
+    .join("");
+}
+
+function loadBotStatus() {
+  if (!isHttpPage()) {
+    renderBotStatus({ sources: [] });
+    return Promise.resolve();
+  }
+
+  return fetch("/api/bot-status", { cache: "no-store" })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Nao foi possivel carregar o status do bot.");
+      }
+      return response.json();
+    })
+    .then(renderBotStatus)
+    .catch((error) => {
+      botStatusSummary.textContent = error.message;
+    });
+}
+
+function calculateDiscount(oldValue, currentValue) {
+  if (oldValue <= 0 || currentValue >= oldValue) {
+    return 0;
+  }
+  return Math.round(((oldValue - currentValue) / oldValue) * 100);
+}
+
+function isRealUrl(value, imageUrl = false) {
   const markers = ["seu-codigo", "seucodigo", "seu_id", "seu-id", "produto-exemplo", "exemplo-"];
   const stockImages = ["images.unsplash.com", "pexels.com", "pixabay.com"];
 
