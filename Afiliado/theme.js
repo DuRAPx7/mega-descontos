@@ -20,8 +20,28 @@
   }
 
   function ensureBrandIcon() {
-    const brandIconPath = "assets/mega-descontos-icon.png?v=20260620-5";
+    const brandIconPath = "assets/mega-descontos-icon.png?v=20260620-6";
     const faviconPath = "favicon.ico?v=20260620-3";
+
+    function createBrandFallback() {
+      const fallback = document.createElement("span");
+      fallback.className = "brand-logo-fallback";
+      fallback.textContent = "MD";
+      fallback.setAttribute("aria-hidden", "true");
+      fallback.style.width = "46px";
+      fallback.style.height = "46px";
+      fallback.style.display = "grid";
+      fallback.style.placeItems = "center";
+      fallback.style.flex = "0 0 46px";
+      fallback.style.borderRadius = "12px";
+      fallback.style.background = "linear-gradient(135deg, #111827, #0b1117)";
+      fallback.style.color = "#22c55e";
+      fallback.style.fontWeight = "900";
+      fallback.style.fontSize = "1rem";
+      fallback.style.letterSpacing = "0";
+      fallback.style.border = "1px solid rgba(34, 197, 94, 0.28)";
+      return fallback;
+    }
 
     function polishBrandImage(icon) {
       icon.src = brandIconPath;
@@ -34,9 +54,12 @@
       icon.style.flex = "0 0 46px";
       icon.style.objectFit = "contain";
       icon.style.borderRadius = "12px";
-      icon.style.background = "#ffffff";
-      icon.style.padding = "4px";
-      icon.style.boxShadow = "0 8px 22px rgba(0, 0, 0, 0.18)";
+      icon.style.background = "transparent";
+      icon.style.padding = "0";
+      icon.style.boxShadow = "none";
+      icon.onerror = () => {
+        icon.replaceWith(createBrandFallback());
+      };
     }
 
     document.querySelectorAll(".brand-icon").forEach((oldIcon) => {
