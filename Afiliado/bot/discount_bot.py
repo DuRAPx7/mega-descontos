@@ -26,6 +26,7 @@ DEFAULT_INPUT = ROOT_DIR / "bot" / "produtos_monitorados.json"
 DEFAULT_FEEDS = ROOT_DIR / "bot" / "source_feeds.json"
 DEFAULT_REAL_SOURCES = ROOT_DIR / "bot" / "real_sources.json"
 DEFAULT_OUTPUT = ROOT_DIR / "bot" / "ofertas_geradas.json"
+DEFAULT_LINKS_OUTPUT = ROOT_DIR / "bot" / "links_gerados.txt"
 DEFAULT_DB = ROOT_DIR / "data" / "offers_db.json"
 DEFAULT_STATUS = ROOT_DIR / "bot" / "status.json"
 AFFILIATE_CONFIG = ROOT_DIR / "config" / "affiliate.json"
@@ -657,6 +658,20 @@ def merge_offers(existing: list[dict], generated: list[dict], purge_missing: boo
     return remove_expired_offers(list(merged.values()))
 
 
+def write_offer_links(offers: list[dict], links_output_path: Path) -> None:
+    links = []
+    seen = set()
+    for offer in offers:
+        link = str(offer.get("affiliateUrl") or "").strip()
+        if not link or link in seen:
+            continue
+        links.append(link)
+        seen.add(link)
+
+    links_output_path.parent.mkdir(parents=True, exist_ok=True)
+    links_output_path.write_text("\n".join(links) + ("\n" if links else ""), encoding="utf-8")
+
+
 def generate_offers(
     input_path: Path,
     output_path: Path,
@@ -666,6 +681,7 @@ def generate_offers(
     feeds_path: Path = DEFAULT_FEEDS,
     real_sources_path: Path = DEFAULT_REAL_SOURCES,
     status_path: Path = DEFAULT_STATUS,
+    links_output_path: Path = DEFAULT_LINKS_OUTPUT,
     existing_offers: list[dict] | None = None,
     persist_db: bool = True,
 ) -> list[dict]:
@@ -695,6 +711,8 @@ def generate_offers(
     with output_path.open("w", encoding="utf-8") as file:
         json.dump(offers, file, ensure_ascii=False, indent=2)
 
+    write_offer_links(offers, links_output_path)
+
     current_offers = load_existing_offers(db_path) if existing_offers is None else existing_offers
     merged_offers = merge_offers(current_offers, offers, purge_missing=purge_missing)
     if persist_db:
@@ -708,6 +726,7 @@ def generate_offers(
         "candidateOffers": len(LAST_CANDIDATES),
         "rejectedOffers": max(len(products) - len(offers), 0),
         "totalPublished": len(merged_offers),
+        "linksFile": str(links_output_path.relative_to(ROOT_DIR) if links_output_path.is_relative_to(ROOT_DIR) else links_output_path),
         "sources": SOURCE_STATUS,
     }
     status_path.parent.mkdir(parents=True, exist_ok=True)
@@ -723,6 +742,7 @@ def main() -> None:
     parser.add_argument("--feeds", default=str(DEFAULT_FEEDS), help="Feeds JSON autorizados.")
     parser.add_argument("--real-sources", default=str(DEFAULT_REAL_SOURCES), help="Fontes reais oficiais/autorizadas.")
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT), help="Arquivo JSON de saida com ofertas.")
+    parser.add_argument("--links-output", default=str(DEFAULT_LINKS_OUTPUT), help="Arquivo TXT com um link de afiliado por linha.")
     parser.add_argument("--db", default=str(DEFAULT_DB), help="Arquivo de ofertas usado pelo site.")
     parser.add_argument("--status", default=str(DEFAULT_STATUS), help="Arquivo de status da ultima execucao.")
     parser.add_argument("--minimum-discount", type=int, default=15, help="Desconto minimo para publicar.")
@@ -738,8 +758,10 @@ def main() -> None:
         feeds_path=Path(args.feeds),
         real_sources_path=Path(args.real_sources),
         status_path=Path(args.status),
+        links_output_path=Path(args.links_output),
     )
     print(f"{len(offers)} ofertas ativas geradas em {args.output}")
+    print(f"Links das ofertas gerados em {args.links_output}")
     print(f"Banco do site atualizado em {args.db}")
 
 
