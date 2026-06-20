@@ -20,20 +20,33 @@
   }
 
   function ensureBrandIcon() {
-    const brandIconPath = "assets/mega-descontos-icon.png?v=20260620-4";
+    const brandIconPath = "assets/mega-descontos-icon.png?v=20260620-5";
     const faviconPath = "favicon.ico?v=20260620-3";
+
+    function polishBrandImage(icon) {
+      icon.src = brandIconPath;
+      icon.classList.add("brand-logo");
+      icon.alt = "";
+      icon.setAttribute("aria-hidden", "true");
+      icon.style.width = "46px";
+      icon.style.height = "46px";
+      icon.style.display = "block";
+      icon.style.flex = "0 0 46px";
+      icon.style.objectFit = "contain";
+      icon.style.borderRadius = "12px";
+      icon.style.background = "#ffffff";
+      icon.style.padding = "4px";
+      icon.style.boxShadow = "0 8px 22px rgba(0, 0, 0, 0.18)";
+    }
 
     document.querySelectorAll(".brand-icon").forEach((oldIcon) => {
       const icon = document.createElement("img");
-      icon.src = brandIconPath;
-      icon.alt = "";
-      icon.className = "brand-logo";
-      icon.setAttribute("aria-hidden", "true");
+      polishBrandImage(icon);
       oldIcon.replaceWith(icon);
     });
 
     document.querySelectorAll(".brand-logo, .brand > img").forEach((icon) => {
-      icon.src = brandIconPath;
+      polishBrandImage(icon);
     });
 
     document.querySelectorAll("link[rel='icon'], link[rel='shortcut icon']").forEach((favicon) => {
