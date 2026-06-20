@@ -282,8 +282,9 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                             for product in products
                             if (candidate := bot.normalize_candidate(product, minimum_discount=15))
                         ]
+                        cached = bot.filter_unpublished_candidates(cached, read_offers())
                         if not cached:
-                            raise ValueError("O Mercado Livre nao retornou ofertas com desconto agora.")
+                            raise ValueError("O Mercado Livre nao retornou novas ofertas com desconto agora.")
                         ML_DEALS_CACHE["candidates"] = cached
                         ML_DEALS_CACHE["expiresAt"] = now + 600
                         write_candidates(cached)

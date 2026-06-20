@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sys
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from html.parser import HTMLParser
@@ -468,6 +469,44 @@ def normalize_image_url(url: str | None) -> str:
     return url
 
 
+def comparable_text(value: str | None) -> str:
+    without_accents = unicodedata.normalize("NFD", str(value or "").lower())
+    without_accents = "".join(char for char in without_accents if unicodedata.category(char) != "Mn")
+    normalized = re.sub(r"[^a-z0-9]+", " ", without_accents)
+    return " ".join(normalized.split())
+
+
+def product_identity_keys(item: dict) -> set[str]:
+    keys = set()
+    for field in ("sourceProductId", "productUrl", "url", "affiliateUrl"):
+        value = str(item.get(field) or "").strip().lower()
+        if value:
+            keys.add(f"{field}:{value}")
+
+    title = comparable_text(str(item.get("title") or ""))
+    store = comparable_text(str(item.get("store") or ""))
+    if title and store:
+        keys.add(f"title-store:{store}:{title}")
+    return keys
+
+
+def filter_unpublished_candidates(candidates: list[dict], existing_offers: list[dict]) -> list[dict]:
+    published_keys = set()
+    for offer in existing_offers:
+        if isinstance(offer, dict):
+            published_keys.update(product_identity_keys(offer))
+
+    filtered = []
+    seen_candidates = set()
+    for candidate in candidates:
+        candidate_keys = product_identity_keys(candidate)
+        if not candidate_keys or candidate_keys & published_keys or candidate_keys & seen_candidates:
+            continue
+        filtered.append(candidate)
+        seen_candidates.update(candidate_keys)
+    return filtered
+
+
 def fetch_mercadolivre_search(source: dict) -> list[dict]:
     if not source.get("enabled"):
         record_source_status(source.get("query", "Mercado Livre"), "mercadolivre_search", True, 0, "Fonte desativada.")
@@ -727,10 +766,11 @@ def generate_offers(
     with output_path.open("w", encoding="utf-8") as file:
         json.dump(offers, file, ensure_ascii=False, indent=2)
 
+    current_offers = load_existing_offers(db_path) if existing_offers is None else existing_offers
+    LAST_CANDIDATES[:] = filter_unpublished_candidates(LAST_CANDIDATES, current_offers)
     write_offer_links(offers, links_output_path)
     write_candidate_links(LAST_CANDIDATES, candidate_links_output_path)
 
-    current_offers = load_existing_offers(db_path) if existing_offers is None else existing_offers
     merged_offers = merge_offers(current_offers, offers, purge_missing=purge_missing)
     if persist_db:
         db_path.parent.mkdir(parents=True, exist_ok=True)

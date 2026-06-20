@@ -138,9 +138,46 @@ function isMercadoLivreAffiliateUrl(value) {
   }
 }
 
+function normalizeProductText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function productIdentityKeys(item) {
+  const keys = new Set();
+  ["sourceProductId", "productUrl", "url", "affiliateUrl"].forEach((field) => {
+    const value = String(item?.[field] || "").trim().toLowerCase();
+    if (value) {
+      keys.add(`${field}:${value}`);
+    }
+  });
+
+  const title = normalizeProductText(item?.title);
+  const store = normalizeProductText(item?.store);
+  if (title && store) {
+    keys.add(`title-store:${store}:${title}`);
+  }
+  return keys;
+}
+
+function isCandidatePublished(candidate) {
+  const candidateKeys = productIdentityKeys(candidate);
+  return adminOffers.some((offer) => {
+    const offerKeys = productIdentityKeys(offer);
+    return [...candidateKeys].some((key) => offerKeys.has(key));
+  });
+}
+
 function renderCandidates() {
   const publishedIds = new Set(adminOffers.map((offer) => String(offer.id)));
-  const visibleCandidates = offerCandidates.filter((candidate) => !publishedIds.has(String(candidate.id)));
+  const visibleCandidates = offerCandidates.filter((candidate) =>
+    !publishedIds.has(String(candidate.id)) && !isCandidatePublished(candidate)
+  );
 
   candidateStatus.textContent = `${visibleCandidates.length} ofertas aguardando link afiliado.`;
   candidateList.innerHTML = visibleCandidates
