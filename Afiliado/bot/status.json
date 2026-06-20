@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-06-20T02:38:56.813794+00:00",
+  "checkedAt": "2026-06-20T05:30:08.414344+00:00",
   "generatedOffers": 1,
   "candidateOffers": 0,
   "rejectedOffers": 0,
@@ -11,15 +11,7 @@
       "ok": true,
       "count": 1,
       "error": "",
-      "checkedAt": "2026-06-20T02:38:56.812978+00:00"
-    },
-    {
-      "name": "Feed de produtos Admitad",
-      "type": "affiliate_feed",
-      "ok": false,
-      "count": 0,
-      "error": "Configure ADMITAD_PRODUCT_FEED_URL.",
-      "checkedAt": "2026-06-20T02:38:56.813256+00:00"
+      "checkedAt": "2026-06-20T05:30:08.413433+00:00"
     },
     {
       "name": "fone bluetooth",
@@ -27,7 +19,7 @@
       "ok": false,
       "count": 0,
       "error": "Configure MERCADOLIVRE_ACCESS_TOKEN.",
-      "checkedAt": "2026-06-20T02:38:56.813380+00:00"
+      "checkedAt": "2026-06-20T05:30:08.413904+00:00"
     },
     {
       "name": "air fryer",
@@ -35,7 +27,7 @@
       "ok": false,
       "count": 0,
       "error": "Configure MERCADOLIVRE_ACCESS_TOKEN.",
-      "checkedAt": "2026-06-20T02:38:56.813388+00:00"
+      "checkedAt": "2026-06-20T05:30:08.413917+00:00"
     },
     {
       "name": "smartphone",
@@ -43,7 +35,7 @@
       "ok": false,
       "count": 0,
       "error": "Configure MERCADOLIVRE_ACCESS_TOKEN.",
-      "checkedAt": "2026-06-20T02:38:56.813392+00:00"
+      "checkedAt": "2026-06-20T05:30:08.413923+00:00"
     },
     {
       "name": "notebook",
@@ -51,7 +43,7 @@
       "ok": false,
       "count": 0,
       "error": "Configure MERCADOLIVRE_ACCESS_TOKEN.",
-      "checkedAt": "2026-06-20T02:38:56.813396+00:00"
+      "checkedAt": "2026-06-20T05:30:08.413927+00:00"
     }
   ]
 }

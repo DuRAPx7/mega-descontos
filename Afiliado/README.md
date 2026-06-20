@@ -70,10 +70,12 @@ O bot ja esta preparado para estas variaveis de ambiente:
 AMAZON_ASSOCIATE_TAG=sua_tag_amazon
 MERCADOLIVRE_AFFILIATE_ID=seu_id_mercado_livre
 MERCADOLIVRE_ACCESS_TOKEN=seu_token_api_mercado_livre
+MERCADOLIVRE_CLIENT_ID=id_da_aplicacao
+MERCADOLIVRE_CLIENT_SECRET=chave_secreta_da_aplicacao
+MERCADOLIVRE_REDIRECT_URI=https://mega-descontos.onrender.com/api/mercadolivre/callback
 MAGALU_PARTNER_ID=seu_id_magalu
 SHOPEE_AFFILIATE_ID=seu_id_shopee
 ALIEXPRESS_AFFILIATE_ID=seu_id_aliexpress
-ADMITAD_SUBID=seu_subid_admitad
 ```
 
 Para teste local, voce tambem pode copiar `config/affiliate.example.json` para
@@ -85,7 +87,7 @@ ofertas reais dessa fonte, configure `MERCADOLIVRE_ACCESS_TOKEN` se a API
 responder 403 no ambiente de hospedagem.
 
 `bot/source_feeds.json` aceita feeds/API JSON autorizados de Amazon, Shopee,
-Magalu, AliExpress ou Admitad. Basta mapear os campos `title`, `url`,
+Magalu ou AliExpress. Basta mapear os campos `title`, `url`,
 `affiliateUrl`, `oldPrice`, `currentPrice`, `image` e `expiresAt`.
 
 ## Publicar ofertas reais
@@ -110,21 +112,21 @@ generico nao garante o rastreamento da comissao.
 
 ### Automacao de ofertas
 
-Existem dois fluxos seguros:
+O Mercado Livre funciona em dois fluxos:
 
 - links `meli.la`: o bot monitora automaticamente titulo, imagem e precos dos
   links gerados no painel de afiliados do Mercado Livre;
-- feed afiliado: o bot descobre novos produtos sozinho em feeds JSON, XML/YML
-  ou CSV e publica somente itens que ja tragam o deeplink de comissao.
+- OAuth oficial: o Admin conecta sua conta e o bot busca produtos em oferta,
+  salvando-os como candidatos ate receberem o link `meli.la`.
 
-Para ativar o feed da Admitad, obtenha a URL privada do feed de produtos dentro
-da sua conta e adicione no Render:
+Cadastre no aplicativo do Mercado Livre esta URL de retorno:
 
 ```text
-ADMITAD_PRODUCT_FEED_URL=https://endereco-privado-do-seu-feed
+https://mega-descontos.onrender.com/api/mercadolivre/callback
 ```
 
-Nao coloque essa URL no GitHub, pois ela pode conter identificadores ou tokens.
+Depois configure `MERCADOLIVRE_CLIENT_ID`, `MERCADOLIVRE_CLIENT_SECRET` e
+`MERCADOLIVRE_REDIRECT_URI` no Render. O bot renova o token automaticamente.
 O bot consulta as fontes ao iniciar e depois a cada 10 minutos. Produtos que
 somem do feed, ficam sem desconto ou deixam de responder sao retirados do site.
 

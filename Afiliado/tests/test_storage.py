@@ -58,6 +58,24 @@ class OfferStorageTests(unittest.TestCase):
             )
             self.assertEqual(storage.read_all()[0]["title"], "Atualizada")
 
+    def test_persists_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            storage = self.make_storage(Path(directory) / "offers.db")
+            storage.initialize([])
+            candidates = [{"id": 10, "title": "Oferta encontrada"}]
+            self.assertEqual(storage.replace_candidates(candidates), 1)
+            self.assertEqual(storage.read_candidates(), candidates)
+
+    def test_persists_and_deletes_integration(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            storage = self.make_storage(Path(directory) / "offers.db")
+            storage.initialize([])
+            tokens = {"accessToken": "token", "refreshToken": "refresh", "expiresAt": 123}
+            storage.set_integration("mercadolivre", tokens)
+            self.assertEqual(storage.get_integration("mercadolivre"), tokens)
+            storage.delete_integration("mercadolivre")
+            self.assertIsNone(storage.get_integration("mercadolivre"))
+
 
 if __name__ == "__main__":
     unittest.main()

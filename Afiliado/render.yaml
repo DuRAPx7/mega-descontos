@@ -20,13 +20,15 @@ services:
         sync: false
       - key: MERCADOLIVRE_ACCESS_TOKEN
         sync: false
+      - key: MERCADOLIVRE_CLIENT_ID
+        sync: false
+      - key: MERCADOLIVRE_CLIENT_SECRET
+        sync: false
+      - key: MERCADOLIVRE_REDIRECT_URI
+        value: https://mega-descontos.onrender.com/api/mercadolivre/callback
       - key: MAGALU_PARTNER_ID
         sync: false
       - key: SHOPEE_AFFILIATE_ID
         sync: false
       - key: ALIEXPRESS_AFFILIATE_ID
-        sync: false
-      - key: ADMITAD_SUBID
-        sync: false
-      - key: ADMITAD_PRODUCT_FEED_URL
         sync: false

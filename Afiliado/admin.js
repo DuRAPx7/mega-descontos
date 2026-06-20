@@ -14,6 +14,7 @@ if (window.location.protocol === "file:") {
 }
 
 let adminOffers = [...(window.DEFAULT_OFFERS || [])];
+let offerCandidates = [];
 let editingId = null;
 let adminSearchTerm = "";
 
@@ -41,6 +42,11 @@ const runBotNow = document.querySelector("#runBotNow");
 const logoutAdmin = document.querySelector("#logoutAdmin");
 const botStatusList = document.querySelector("#botStatusList");
 const botStatusSummary = document.querySelector("#botStatusSummary");
+const mercadoLivreStatus = document.querySelector("#mercadoLivreStatus");
+const connectMercadoLivre = document.querySelector("#connectMercadoLivre");
+const disconnectMercadoLivre = document.querySelector("#disconnectMercadoLivre");
+const candidateList = document.querySelector("#candidateList");
+const candidateStatus = document.querySelector("#candidateStatus");
 
 const moneyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -89,10 +95,10 @@ function loadAdminOffersFromApi() {
   if (!isHttpPage()) {
     adminOffers = loadAdminOffers();
     renderAdminOffers();
-    return;
+    return Promise.resolve();
   }
 
-  fetch(API_OFFERS_URL, { cache: "no-store" })
+  return fetch(API_OFFERS_URL, { cache: "no-store" })
     .then((response) => {
       if (!response.ok) {
         throw new Error("API indisponivel");
@@ -110,55 +116,42 @@ function loadAdminOffersFromApi() {
     });
 }
 
-function renderBotStatus(status) {
-  const sources = status.sources || [];
-  botStatusSummary.textContent = status.checkedAt
-    ? `Ultima execucao: ${new Date(status.checkedAt).toLocaleString("pt-BR")} / ${status.generatedOffers || 0} publicadas / ${status.rejectedOffers || 0} rejeitadas.`
-    : "O bot ainda nao registrou uma execucao.";
-
-  if (!sources.length) {
-    botStatusList.innerHTML = "<p>Nenhuma fonte registrada ainda.</p>";
-    return;
-  }
-
-  botStatusList.innerHTML = sources
-    .map((source) => `
-      <article class="bot-status-item ${source.ok ? "ok" : "error"}">
-        <strong>${source.name || source.type}</strong>
-        <span>${source.ok ? `${source.count || 0} itens capturados` : `Erro: ${source.error}`}</span>
-        <span>${source.type}</span>
-      </article>
-    `)
-    .join("");
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
-function loadBotStatus() {
-  if (!isHttpPage()) {
-    renderBotStatus({ sources: [] });
-    return Promise.resolve();
+function isMercadoLivreAffiliateUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" && (
+      parsed.hostname === "meli.la" ||
+      (parsed.hostname.endsWith("mercadolivre.com.br") && parsed.pathname.startsWith("/social/"))
+    );
+  } catch {
+    return false;
   }
-
-  return fetch("/api/bot-status", { cache: "no-store" })
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error("Nao foi possivel carregar o status do bot.");
-      }
-      return response.json();
-    })
-    .then(renderBotStatus)
-    .catch((error) => {
-      botStatusSummary.textContent = error.message;
-    });
 }
 
-function calculateDiscount(oldValue, currentValue) {
-  if (oldValue <= 0 || currentValue >= oldValue) {
-    return 0;
-  }
-  return Math.round(((oldValue - currentValue) / oldValue) * 100);
-}
+function renderCandidates() {
+  const publishedIds = new Set(adminOffers.map((offer) => String(offer.id)));
+  const visibleCandidates = offerCandidates.filter((candidate) => !publishedIds.has(String(candidate.id)));
 
-function isRealUrl(value, imageUrl = false) {
+  candidateStatus.textContent = `${visibleCandidates.length} ofertas aguardando link afiliado.`;
+  candidateList.innerHTML = visibleCandidates
+    .map((candidate) => `
+      <article class="candidate-card">
+        <img src="${escapeHtml(candidate.image)}" alt="${escapeHtml(candidate.title)}" onerror="this.style.visibility='hidden'">
+        <div>
+          <h3>${escapeHtml(candidate.title)}</h3>
+          <p>${escapeHtml(candidate.store)} / ${escapeHtml(candidate.category)} / ${candidate.discount}% OFF</p>
+          <p>${moneyFormatter.format(candidate.currentPrice)} antes ${moneyFormatter.format(candidate.oldPrice)}</p>
+        </div>
+        <div class=…1352 tokens truncated…ealUrl(value, imageUrl = false) {
   const markers = ["seu-codigo", "seucodigo", "seu_id", "seu-id", "produto-exemplo", "exemplo-"];
   const stockImages = ["images.unsplash.com", "pexels.com", "pixabay.com"];
 
@@ -489,7 +482,7 @@ runBotNow.addEventListener("click", () => {
       }
       return response.json();
     })
-    .then(() => Promise.all([loadAdminOffersFromApi(), loadBotStatus()]))
+    .then(() => Promise.all([loadAdminOffersFromApi().then(loadCandidates), loadBotStatus()]))
     .then(() => {
       importStatus.textContent = "Bot executado e ofertas atualizadas.";
     })
@@ -504,5 +497,32 @@ logoutAdmin.addEventListener("click", () => {
   });
 });
 
-loadAdminOffersFromApi();
+connectMercadoLivre.addEventListener("click", () => {
+  window.location.href = "/api/mercadolivre/connect";
+});
+
+disconnectMercadoLivre.addEventListener("click", () => {
+  fetch("/api/integrations/mercadolivre/disconnect", { method: "POST" })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Nao foi possivel desconectar a conta.");
+      }
+      return Promise.all([loadMercadoLivreIntegration(), loadCandidates()]);
+    })
+    .catch((error) => {
+      mercadoLivreStatus.textContent = error.message;
+    });
+});
+
+const mercadoLivreResult = new URLSearchParams(window.location.search).get("ml");
+if (mercadoLivreResult === "connected") {
+  importStatus.textContent = "Mercado Livre conectado. A primeira busca foi iniciada.";
+} else if (mercadoLivreResult === "not-configured") {
+  importStatus.textContent = "Configure as credenciais OAuth do Mercado Livre no Render.";
+} else if (mercadoLivreResult === "error") {
+  importStatus.textContent = "Nao foi possivel concluir a conexao com o Mercado Livre.";
+}
+
+loadAdminOffersFromApi().then(loadCandidates);
 loadBotStatus();
+loadMercadoLivreIntegration();
