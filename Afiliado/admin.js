@@ -657,4 +657,3 @@ refreshMercadoLivreDeals.addEventListener("click", () => {
 
 loadAdminOffersFromApi().then(loadCandidates);
 loadBotStatus();
-

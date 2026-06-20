@@ -112,16 +112,11 @@ select {
 }
 
 .brand-icon {
-  display: grid;
   width: 44px;
   height: 44px;
-  place-items: center;
-  border-radius: 10px;
-  background: linear-gradient(145deg, #25c45a, #07913c);
-  color: #fff;
-  font-size: 1.4rem;
-  font-weight: 900;
-  transform: rotate(-35deg);
+  display: block;
+  flex: 0 0 44px;
+  object-fit: contain;
 }
 
 .brand strong {

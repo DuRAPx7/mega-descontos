@@ -24,4 +24,3 @@ services:
         sync: false
       - key: ALIEXPRESS_AFFILIATE_ID
         sync: false
-

@@ -19,9 +19,42 @@
     });
   }
 
+  function ensureBrandIcon() {
+    const iconPath = "assets/mega-descontos-icon.png";
+
+    document.querySelectorAll(".brand-icon").forEach((oldIcon) => {
+      const icon = document.createElement("img");
+      icon.src = iconPath;
+      icon.alt = "";
+      icon.setAttribute("aria-hidden", "true");
+      icon.style.width = "44px";
+      icon.style.height = "44px";
+      icon.style.display = "block";
+      icon.style.flex = "0 0 44px";
+      icon.style.objectFit = "contain";
+      oldIcon.replaceWith(icon);
+    });
+
+    if (!document.querySelector("link[rel='icon']")) {
+      const favicon = document.createElement("link");
+      favicon.rel = "icon";
+      favicon.type = "image/png";
+      favicon.href = iconPath;
+      document.head.appendChild(favicon);
+    }
+
+    if (!document.querySelector("link[rel='apple-touch-icon']")) {
+      const touchIcon = document.createElement("link");
+      touchIcon.rel = "apple-touch-icon";
+      touchIcon.href = iconPath;
+      document.head.appendChild(touchIcon);
+    }
+  }
+
   window.MegaTheme = {
     init() {
       applyTheme(getPreferredTheme());
+      ensureBrandIcon();
       document.querySelectorAll("[data-theme-toggle]").forEach((button) => {
         button.addEventListener("click", () => {
           const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
@@ -29,7 +62,8 @@
         });
       });
     },
-    applyTheme
+    applyTheme,
+    ensureBrandIcon
   };
 
   applyTheme(getPreferredTheme());

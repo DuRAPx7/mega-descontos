@@ -1,8 +1,8 @@
 {
-  "checkedAt": "2026-06-20T05:30:08.414344+00:00",
+  "checkedAt": "2026-06-20T19:02:44.828436+00:00",
   "generatedOffers": 1,
-  "candidateOffers": 0,
-  "rejectedOffers": 0,
+  "candidateOffers": 21,
+  "rejectedOffers": 24,
   "totalPublished": 1,
   "sources": [
     {
@@ -11,39 +11,15 @@
       "ok": true,
       "count": 1,
       "error": "",
-      "checkedAt": "2026-06-20T05:30:08.413433+00:00"
+      "checkedAt": "2026-06-20T19:02:43.610832+00:00"
     },
     {
-      "name": "fone bluetooth",
-      "type": "mercadolivre_search",
-      "ok": false,
-      "count": 0,
-      "error": "Configure MERCADOLIVRE_ACCESS_TOKEN.",
-      "checkedAt": "2026-06-20T05:30:08.413904+00:00"
-    },
-    {
-      "name": "air fryer",
-      "type": "mercadolivre_search",
-      "ok": false,
-      "count": 0,
-      "error": "Configure MERCADOLIVRE_ACCESS_TOKEN.",
-      "checkedAt": "2026-06-20T05:30:08.413917+00:00"
-    },
-    {
-      "name": "smartphone",
-      "type": "mercadolivre_search",
-      "ok": false,
-      "count": 0,
-      "error": "Configure MERCADOLIVRE_ACCESS_TOKEN.",
-      "checkedAt": "2026-06-20T05:30:08.413923+00:00"
-    },
-    {
-      "name": "notebook",
-      "type": "mercadolivre_search",
-      "ok": false,
-      "count": 0,
-      "error": "Configure MERCADOLIVRE_ACCESS_TOKEN.",
-      "checkedAt": "2026-06-20T05:30:08.413927+00:00"
+      "name": "Melhores ofertas",
+      "type": "mercadolivre_deals",
+      "ok": true,
+      "count": 24,
+      "error": "",
+      "checkedAt": "2026-06-20T19:02:44.827459+00:00"
     }
   ]
 }

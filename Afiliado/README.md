@@ -170,4 +170,3 @@ Acesse `/healthz` para conferir o armazenamento ativo. Em producao, o retorno
 correto deve conter `"storage": "postgresql"` e `"persistent": true`.
 
 Nunca publique a `DATABASE_URL` em arquivos do Git ou em capturas de tela.
-
