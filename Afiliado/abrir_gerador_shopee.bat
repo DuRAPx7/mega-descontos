@@ -10,10 +10,7 @@ echo ==========================================
 echo.
 
 if not exist "shopee_linkbuilder_url.txt" (
-  echo Cole a URL da tela da Shopee onde voce converte/gera links afiliados.
-  echo Exemplo: a pagina do painel com o campo para colar links de produtos.
-  set /p SHOPEE_LINKBUILDER_URL=URL do gerador Shopee: 
-  >shopee_linkbuilder_url.txt echo !SHOPEE_LINKBUILDER_URL!
+  >shopee_linkbuilder_url.txt echo https://affiliate.shopee.com.br/offer/custom_link
 )
 
 set /p SHOPEE_LINKBUILDER_URL=<shopee_linkbuilder_url.txt

@@ -20,7 +20,7 @@ from mercadolivre_linkbuilder_bot import (
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_INPUT = ROOT_DIR / "bot" / "links_shopee_promocoes_potenciais.txt"
 DEFAULT_OUTPUT = ROOT_DIR / "bot" / "links_shopee_afiliados_gerados.csv"
-DEFAULT_LINKBUILDER_URL = "https://affiliate.shopee.com.br/"
+DEFAULT_LINKBUILDER_URL = "https://affiliate.shopee.com.br/offer/custom_link"
 
 
 def normalize_url(value: str) -> str:
@@ -151,22 +151,26 @@ def click_generate(page) -> None:
         raise RuntimeError("Nao encontrei o botao de gerar/converter links na Shopee.")
 
 
-def generate_affiliate_links(source_links: list[str], cdp_url: str, linkbuilder_url: str, wait_seconds: int) -> list[str]:
+def generate_affiliate_links(source_links: list[str], cdp_url: str, linkbuilder_url: str, wait_seconds: int, batch_size: int) -> list[str]:
     playwright, page = connect_to_linkbuilder(cdp_url, linkbuilder_url)
     try:
         page.bring_to_front()
-        fill_source_links(page, source_links)
-        click_generate(page)
+        all_generated = []
+        for start in range(0, len(source_links), batch_size):
+            batch = source_links[start:start + batch_size]
+            fill_source_links(page, batch)
+            click_generate(page)
 
-        source_set = {normalize_url(link) for link in source_links}
-        deadline = time.time() + wait_seconds
-        generated = []
-        while time.time() < deadline:
-            generated = collect_urls_from_page(page, source_set)
-            if len(generated) >= len(source_links):
-                break
-            time.sleep(1)
-        return generated
+            source_set = {normalize_url(link) for link in batch}
+            deadline = time.time() + wait_seconds
+            generated = []
+            while time.time() < deadline:
+                generated = collect_urls_from_page(page, source_set)
+                if len(generated) >= len(batch):
+                    break
+                time.sleep(1)
+            all_generated.extend(generated[:len(batch)])
+        return all_generated
     finally:
         playwright.stop()
 
@@ -247,6 +251,7 @@ def main() -> None:
     parser.add_argument("--cdp-url", default="http://127.0.0.1:9222", help="URL CDP do navegador controlavel.")
     parser.add_argument("--linkbuilder-url", default=os.environ.get("SHOPEE_LINKBUILDER_URL", DEFAULT_LINKBUILDER_URL))
     parser.add_argument("--wait-seconds", type=int, default=90, help="Tempo maximo aguardando os links gerados.")
+    parser.add_argument("--batch-size", type=int, default=5, help="Quantidade de links por envio. A Shopee aceita ate 5.")
     parser.add_argument("--publish-site", action="store_true", help="Publica no Mega Descontos depois de gerar.")
     parser.add_argument("--site-url", default=os.environ.get("SITE_URL", "http://127.0.0.1:8000"))
     parser.add_argument("--admin-user", default=os.environ.get("ADMIN_USERNAME", "admin"))
@@ -258,7 +263,8 @@ def main() -> None:
     if not source_links:
         raise SystemExit(f"Nenhum link da Shopee encontrado em {args.input}")
 
-    generated_links = generate_affiliate_links(source_links, args.cdp_url, args.linkbuilder_url, args.wait_seconds)
+    batch_size = max(1, min(args.batch_size, 5))
+    generated_links = generate_affiliate_links(source_links, args.cdp_url, args.linkbuilder_url, args.wait_seconds, batch_size)
     statuses = None
     if args.publish_site:
         statuses = publish_to_site(args.site_url, args.admin_user, args.admin_password, source_links, generated_links)

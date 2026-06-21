@@ -46,7 +46,7 @@ if %errorlevel% neq 0 (
   "%PYTHON_EXE%" -m pip install -r requirements.txt
 )
 
-set "SHOPEE_LINKBUILDER_URL=https://affiliate.shopee.com.br/"
+set "SHOPEE_LINKBUILDER_URL=https://affiliate.shopee.com.br/offer/custom_link"
 if exist "shopee_linkbuilder_url.txt" (
   set /p SHOPEE_LINKBUILDER_URL=<shopee_linkbuilder_url.txt
 )
