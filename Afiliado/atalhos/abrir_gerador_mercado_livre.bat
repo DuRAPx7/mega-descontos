@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableDelayedExpansion
 title Mega Descontos - Abrir gerador Mercado Livre
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 echo.
 echo ===============================================
@@ -86,3 +86,4 @@ echo Depois que a pagina carregar e voce estiver logado, execute:
 echo gerar_links_mercado_livre.bat
 echo.
 pause
+

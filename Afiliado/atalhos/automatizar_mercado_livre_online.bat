@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableDelayedExpansion
 title Mega Descontos - Automacao Mercado Livre Online
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 set "SITE_URL=https://mega-descontos.onrender.com"
 set "ADMIN_URL=https://mega-descontos.onrender.com/login.html"
@@ -182,3 +182,4 @@ echo CSV gerado: bot\links_afiliados_gerados.csv
 echo Site online: %SITE_URL%
 echo.
 pause
+

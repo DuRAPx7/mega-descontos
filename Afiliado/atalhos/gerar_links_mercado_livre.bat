@@ -1,6 +1,6 @@
 @echo off
 title Mega Descontos - Gerar links Mercado Livre
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 echo.
 echo ===============================================
@@ -52,3 +52,4 @@ if %errorlevel% neq 0 (
 echo.
 echo Pronto. Confira o CSV em bot\links_afiliados_gerados.csv
 pause
+

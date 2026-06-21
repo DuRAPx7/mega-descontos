@@ -1,6 +1,6 @@
 @echo off
 title Mega Descontos - Gerar links Shopee
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 echo.
 echo ==========================================
@@ -56,3 +56,4 @@ if exist "shopee_linkbuilder_url.txt" (
 echo.
 echo Pronto. Confira o CSV em bot\links_shopee_afiliados_gerados.csv
 pause
+

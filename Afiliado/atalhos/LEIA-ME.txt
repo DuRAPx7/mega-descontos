@@ -1,0 +1,35 @@
+MEGA DESCONTOS - ATALHOS
+
+Use estes arquivos para operar o projeto sem mexer nos arquivos internos.
+
+1. iniciar_site.bat
+   Abre o site local em http://127.0.0.1:8000
+
+2. automatizar_mercado_livre_online.bat
+   Gera links do Mercado Livre e cadastra no site online.
+
+3. automatizar_shopee_online.bat
+   Gera links da Shopee e cadastra no site online.
+
+4. abrir_gerador_mercado_livre.bat
+   Abre somente o gerador do Mercado Livre em navegador controlavel.
+
+5. abrir_gerador_shopee.bat
+   Abre somente o gerador da Shopee em navegador controlavel.
+
+6. gerar_links_mercado_livre.bat
+   Usa o gerador ja aberto para criar CSV de links Mercado Livre.
+
+7. gerar_links_shopee.bat
+   Usa o gerador ja aberto para criar CSV de links Shopee.
+
+8. rodar_bot.bat
+   Roda somente o bot de ofertas local.
+
+Arquivos de entrada importantes:
+- bot\links_promocoes_potenciais.txt
+- bot\links_shopee_promocoes_potenciais.txt
+
+Arquivos de saida importantes:
+- bot\links_afiliados_gerados.csv
+- bot\links_shopee_afiliados_gerados.csv

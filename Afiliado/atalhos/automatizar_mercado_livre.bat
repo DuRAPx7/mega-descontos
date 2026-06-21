@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableDelayedExpansion
 title Mega Descontos - Automacao Mercado Livre
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 echo.
 echo ==================================================
@@ -171,3 +171,4 @@ echo CSV gerado: bot\links_afiliados_gerados.csv
 echo Site local: http://127.0.0.1:8000
 echo.
 pause
+

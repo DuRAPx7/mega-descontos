@@ -1,16 +1,27 @@
 @echo off
-title Mega Descontos - Bot de ofertas
-cd /d "%~dp0"
+title Mega Descontos - Servidor local
+cd /d "%~dp0.."
 
 echo.
 echo ==========================================
-echo   Mega Descontos - Bot de ofertas
+echo   Mega Descontos - Servidor local
 echo ==========================================
 echo.
-echo Entrada: bot\produtos_monitorados.json
-echo Saida:   bot\ofertas_geradas.json
-echo Site:    data\offers_db.json
+echo Iniciando servidor local...
+echo Pasta do projeto: %CD%
 echo.
+echo Site:  http://127.0.0.1:8000
+echo Admin: http://127.0.0.1:8000/admin.html
+echo Login: admin / admin123
+echo.
+echo Mantenha esta janela aberta enquanto usa o site.
+echo Para parar o servidor, feche esta janela ou pressione CTRL+C.
+echo.
+
+start "" "http://127.0.0.1:8000"
+
+set "HOST=127.0.0.1"
+set "PORT=8000"
 
 set "PYTHON_EXE="
 
@@ -34,8 +45,5 @@ if "%PYTHON_EXE%"=="" (
   exit /b 1
 )
 
-"%PYTHON_EXE%" bot\discount_bot.py --purge-missing
+"%PYTHON_EXE%" server.py
 
-echo.
-echo Se o servidor estiver aberto, atualize o site no navegador para ver as ofertas.
-pause

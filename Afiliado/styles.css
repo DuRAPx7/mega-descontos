@@ -107,15 +107,16 @@ select {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   width: max-content;
 }
 
+.brand-logo,
 .brand-icon {
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
   display: block;
-  flex: 0 0 44px;
+  flex: 0 0 52px;
   object-fit: contain;
 }
 

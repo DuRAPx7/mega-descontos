@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableDelayedExpansion
 title Mega Descontos - Abrir gerador Shopee
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 echo.
 echo ==========================================
@@ -69,3 +69,4 @@ echo Entre na Shopee, deixe a tela do gerador aberta e execute:
 echo gerar_links_shopee.bat
 echo.
 pause
+
