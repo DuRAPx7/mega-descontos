@@ -49,10 +49,22 @@ def is_probable_product_url(value: str) -> bool:
     return bool(re.search(r"i\.\d+\.\d+|sp_atk=|itemid=|shopid=|-i\.", text))
 
 
+def is_ready_affiliate_url(value: str) -> bool:
+    if not is_shopee_url(value):
+        return False
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").lower()
+    return host == "shope.ee" or host == "s.shopee.com.br"
+
+
 def is_generated_affiliate_url(value: str, source_links: set[str]) -> bool:
     if not is_shopee_url(value):
         return False
-    return normalize_url(value) not in source_links
+    normalized = normalize_url(value)
+    return normalized not in source_links or is_ready_affiliate_url(value)
 
 
 def collect_urls_from_page(page, source_links: set[str]) -> list[str]:
@@ -261,16 +273,26 @@ def main() -> None:
     parser.add_argument("--admin-password", default=os.environ.get("ADMIN_PASSWORD", "admin123"))
     args = parser.parse_args()
 
-    source_links = [
+    discovered_links = [
         link
         for link in read_source_links(Path(args.input))
-        if not link.lstrip().startswith("#") and is_shopee_url(link) and is_probable_product_url(link)
+        if not link.lstrip().startswith("#") and is_shopee_url(link)
     ]
-    if not source_links:
+    ready_links = [link for link in discovered_links if is_ready_affiliate_url(link)]
+    product_links = [
+        link
+        for link in discovered_links
+        if not is_ready_affiliate_url(link) and is_probable_product_url(link)
+    ]
+    if not ready_links and not product_links:
         raise SystemExit(f"Nenhum link da Shopee encontrado em {args.input}")
 
     batch_size = max(1, min(args.batch_size, 5))
-    generated_links = generate_affiliate_links(source_links, args.cdp_url, args.linkbuilder_url, args.wait_seconds, batch_size)
+    converted_links = []
+    if product_links:
+        converted_links = generate_affiliate_links(product_links, args.cdp_url, args.linkbuilder_url, args.wait_seconds, batch_size)
+    source_links = [*ready_links, *product_links]
+    generated_links = [*ready_links, *converted_links]
     statuses = None
     if args.publish_site:
         statuses = publish_to_site(args.site_url, args.admin_user, args.admin_password, source_links, generated_links)

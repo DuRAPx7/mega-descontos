@@ -9,7 +9,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT_DIR / "bot" / "links_shopee_promocoes_potenciais.txt"
 DEFAULT_SOURCES = ROOT_DIR / "bot" / "shopee_discovery_sources.txt"
 DEFAULT_SOURCE_URLS = [
-    "https://affiliate.shopee.com.br/offer/product",
+    "https://affiliate.shopee.com.br/offer/product_offer",
     "https://affiliate.shopee.com.br/offer",
     "https://shopee.com.br/search?keyword=ofertas",
 ]
@@ -33,6 +33,17 @@ def is_probable_product_url(value: str) -> bool:
         return False
     text = f"{parsed.path}?{parsed.query}".lower()
     return bool(re.search(r"i\.\d+\.\d+|sp_atk=|itemid=|shopid=|-i\.", text))
+
+
+def is_ready_affiliate_url(value: str) -> bool:
+    if not is_shopee_host(value):
+        return False
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").lower()
+    return host == "shope.ee" or host == "s.shopee.com.br"
 
 
 def read_source_urls(path: Path) -> list[str]:
@@ -65,6 +76,18 @@ def connect_browser(cdp_url: str):
     return playwright, context
 
 
+def clean_candidate_url(value: str, base_url: str) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.startswith("/"):
+        text = urljoin(base_url, text)
+    cleaned = text.strip().rstrip(".,;)")
+    if is_probable_product_url(cleaned) or is_ready_affiliate_url(cleaned):
+        return cleaned
+    return None
+
+
 def collect_links_from_page(page, base_url: str) -> list[str]:
     raw_values = page.evaluate(
         """
@@ -91,11 +114,52 @@ def collect_links_from_page(page, base_url: str) -> list[str]:
         elif text.startswith("https://"):
             candidates.append(text)
         for candidate in candidates:
-            cleaned = candidate.strip().rstrip(".,;)")
-            if is_probable_product_url(cleaned) and cleaned not in seen:
+            cleaned = clean_candidate_url(candidate, base_url)
+            if cleaned and cleaned not in seen:
                 seen.add(cleaned)
                 urls.append(cleaned)
     return urls
+
+
+def click_product_offer_mass_links(page, limit: int) -> None:
+    selected = page.evaluate(
+        """
+        (limit) => {
+          const candidates = [...document.querySelectorAll("input[type='checkbox']")]
+            .filter((box) => !box.disabled && box.offsetParent !== null);
+          let total = 0;
+          for (const box of candidates) {
+            if (total >= limit) break;
+            if (!box.checked) box.click();
+            total += 1;
+          }
+          return total;
+        }
+        """,
+        min(max(limit, 1), 100),
+    )
+    if not selected:
+        return
+
+    page.wait_for_timeout(700)
+    clicked = page.evaluate(
+        """
+        () => {
+          const words = ["obter link em massa", "obter link", "gerar link", "get link"];
+          const nodes = [...document.querySelectorAll("button, [role='button'], a")];
+          const target = nodes.reverse().find((node) => {
+            if (node.disabled || node.getAttribute("aria-disabled") === "true") return false;
+            const text = (node.innerText || node.textContent || "").toLowerCase().trim();
+            return words.some((word) => text.includes(word));
+          });
+          if (!target) return false;
+          target.click();
+          return true;
+        }
+        """
+    )
+    if clicked:
+        page.wait_for_timeout(3_000)
 
 
 def discover_links(source_urls: list[str], cdp_url: str, limit: int, scrolls: int) -> list[str]:
@@ -110,6 +174,14 @@ def discover_links(source_urls: list[str], cdp_url: str, limit: int, scrolls: in
         for source_url in source_urls:
             page.goto(source_url, wait_until="domcontentloaded", timeout=60_000)
             page.wait_for_timeout(2_000)
+            if "affiliate.shopee.com.br/offer/product_offer" in source_url:
+                click_product_offer_mass_links(page, limit)
+                for link in collect_links_from_page(page, source_url):
+                    if link not in seen:
+                        seen.add(link)
+                        found.append(link)
+                        if len(found) >= limit:
+                            return found
             for _ in range(max(scrolls, 1)):
                 page.mouse.wheel(0, 1800)
                 page.wait_for_timeout(1_000)
