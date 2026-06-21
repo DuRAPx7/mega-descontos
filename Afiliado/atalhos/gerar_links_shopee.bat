@@ -33,17 +33,20 @@ if "%PYTHON_EXE%"=="" (
   exit /b 1
 )
 
-if not exist "bot\links_shopee_promocoes_potenciais.txt" (
-  echo Crie o arquivo bot\links_shopee_promocoes_potenciais.txt com um link Shopee por linha.
-  pause
-  exit /b 1
-)
-
 echo Verificando dependencia playwright...
 "%PYTHON_EXE%" -c "import playwright" >nul 2>nul
 if %errorlevel% neq 0 (
   echo Instalando dependencias...
   "%PYTHON_EXE%" -m pip install -r requirements.txt
+)
+
+echo Buscando links de produtos da Shopee...
+"%PYTHON_EXE%" bot\shopee_discovery_bot.py --limit 25
+if %errorlevel% neq 0 (
+  echo Nao consegui encontrar links automaticamente.
+  echo Edite bot\links_shopee_promocoes_potenciais.txt ou bot\shopee_discovery_sources.txt.
+  pause
+  exit /b 1
 )
 
 set "SHOPEE_LINKBUILDER_URL=https://affiliate.shopee.com.br/offer/custom_link"

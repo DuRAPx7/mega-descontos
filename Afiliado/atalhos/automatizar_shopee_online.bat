@@ -15,20 +15,6 @@ echo Destino: %SITE_URL%
 echo Admin:   %ADMIN_URL%
 echo.
 
-if not exist "bot\links_shopee_promocoes_potenciais.txt" (
-  echo Crie o arquivo bot\links_shopee_promocoes_potenciais.txt com um link Shopee por linha.
-  echo Depois rode este arquivo novamente.
-  pause
-  exit /b 1
-)
-
-for %%A in ("bot\links_shopee_promocoes_potenciais.txt") do set "CANDIDATE_SIZE=%%~zA"
-if "%CANDIDATE_SIZE%"=="0" (
-  echo O arquivo bot\links_shopee_promocoes_potenciais.txt esta vazio.
-  pause
-  exit /b 1
-)
-
 set "PYTHON_EXE="
 
 where py >nul 2>nul
@@ -147,6 +133,27 @@ if %errorlevel% neq 0 (
   echo.
   echo Entre na Shopee, deixe a tela do gerador aberta e pressione qualquer tecla.
   pause >nul
+)
+
+echo Buscando links de produtos da Shopee...
+"%PYTHON_EXE%" bot\shopee_discovery_bot.py --limit 25
+if %errorlevel% neq 0 (
+  echo Nao consegui encontrar links de produtos da Shopee automaticamente.
+  echo.
+  echo Se quiser, edite manualmente:
+  echo bot\links_shopee_promocoes_potenciais.txt
+  echo.
+  echo Ou adicione mais paginas em:
+  echo bot\shopee_discovery_sources.txt
+  pause
+  exit /b 1
+)
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$links = Get-Content 'bot\links_shopee_promocoes_potenciais.txt' | Where-Object { $_ -match '^https://.*shopee' -and $_ -notmatch '^\s*#' }; if ($links.Count -gt 0) { exit 0 } else { exit 1 }" >nul 2>nul
+if %errorlevel% neq 0 (
+  echo Nenhum link real de produto da Shopee foi encontrado.
+  pause
+  exit /b 1
 )
 
 echo Gerando links afiliados Shopee e cadastrando no site online...

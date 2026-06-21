@@ -1,0 +1,5 @@
+# Paginas onde o bot vai procurar produtos da Shopee.
+# Voce pode adicionar outras paginas de ofertas/categorias da Shopee aqui.
+https://affiliate.shopee.com.br/offer/product
+https://affiliate.shopee.com.br/offer
+https://shopee.com.br/search?keyword=ofertas

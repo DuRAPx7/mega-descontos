@@ -100,10 +100,13 @@ def connect_to_linkbuilder(cdp_url: str, linkbuilder_url: str):
         ) from error
 
     pages = [page for context in browser.contexts for page in context.pages]
-    page = next((item for item in pages if "shopee" in item.url.lower() and "affiliate" in item.url.lower()), None)
+    page = next((item for item in pages if "custom_link" in item.url.lower()), None)
+    if page is None:
+        page = next((item for item in pages if "shopee" in item.url.lower() and "affiliate" in item.url.lower()), None)
     if page is None:
         context = browser.contexts[0] if browser.contexts else browser.new_context()
         page = context.new_page()
+    if "custom_link" not in page.url.lower():
         page.goto(linkbuilder_url, wait_until="domcontentloaded")
     return playwright, page
 
@@ -258,8 +261,11 @@ def main() -> None:
     parser.add_argument("--admin-password", default=os.environ.get("ADMIN_PASSWORD", "admin123"))
     args = parser.parse_args()
 
-    source_links = read_source_links(Path(args.input))
-    source_links = [link for link in source_links if is_shopee_url(link) and is_probable_product_url(link)]
+    source_links = [
+        link
+        for link in read_source_links(Path(args.input))
+        if not link.lstrip().startswith("#") and is_shopee_url(link) and is_probable_product_url(link)
+    ]
     if not source_links:
         raise SystemExit(f"Nenhum link da Shopee encontrado em {args.input}")
 
