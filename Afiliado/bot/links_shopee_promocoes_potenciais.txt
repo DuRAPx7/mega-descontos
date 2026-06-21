@@ -1,0 +1,3 @@
+# Cole aqui links reais de produtos da Shopee, um por linha.
+# Exemplo de formato:
+# https://shopee.com.br/nome-do-produto-i.123456.789012
