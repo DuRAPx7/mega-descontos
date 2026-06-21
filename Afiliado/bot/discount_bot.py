@@ -291,6 +291,107 @@ def fetch_mercadolivre_affiliate_link(source: dict) -> list[dict]:
     return [product]
 
 
+def is_shopee_affiliate_url(value: str) -> bool:
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return False
+    hostname = (parsed.hostname or "").lower()
+    return parsed.scheme == "https" and (
+        hostname == "shopee.com.br"
+        or hostname.endswith(".shopee.com.br")
+        or hostname == "shope.ee"
+    )
+
+
+def parse_shopee_price(value: str | int | float | None) -> float | None:
+    if value is None or value == "":
+        return None
+    price = float(value)
+    if price >= 100000:
+        price = price / 100000
+    return price
+
+
+def parse_shopee_affiliate_page(page: str, source: dict) -> dict:
+    parser = ProductMetadataParser()
+    parser.feed(page)
+    title = parser.metadata.get("og:title") or parser.metadata.get("title") or ""
+    image_url = parser.metadata.get("og:image") or parser.metadata.get("image") or ""
+    title = re.sub(r"\s*\|\s*Shopee.*$", "", html.unescape(title)).strip()
+
+    current_price = None
+    old_price = None
+    for pattern in (
+        r'"price"\s*:\s*(?P<current>\d+(?:\.\d+)?)',
+        r'"price_min"\s*:\s*(?P<current>\d+(?:\.\d+)?)',
+        r'"current_price"\s*:\s*(?P<current>\d+(?:\.\d+)?)',
+    ):
+        match = re.search(pattern, page)
+        if match:
+            current_price = parse_shopee_price(match.group("current"))
+            break
+
+    for pattern in (
+        r'"price_before_discount"\s*:\s*(?P<old>\d+(?:\.\d+)?)',
+        r'"price_max_before_discount"\s*:\s*(?P<old>\d+(?:\.\d+)?)',
+        r'"previous_price"\s*:\s*(?P<old>\d+(?:\.\d+)?)',
+    ):
+        match = re.search(pattern, page)
+        if match:
+            old_price = parse_shopee_price(match.group("old"))
+            break
+
+    if old_price is None and current_price is not None:
+        discount_match = re.search(r'"discount"\s*:\s*"?(?P<discount>\d{1,2})%?', page)
+        if discount_match:
+            discount = int(discount_match.group("discount"))
+            if 0 < discount < 100:
+                old_price = current_price / (1 - discount / 100)
+
+    if not title or not image_url or old_price is None or current_price is None or old_price <= current_price:
+        raise ValueError("A pagina da Shopee nao informou titulo, imagem e os dois precos da oferta.")
+
+    return {
+        "id": source.get("id") or source.get("affiliateUrl"),
+        "title": title,
+        "store": "Shopee",
+        "category": source.get("category", "Ofertas"),
+        "affiliateUrl": source["affiliateUrl"],
+        "oldPrice": old_price,
+        "currentPrice": current_price,
+        "image": normalize_image_url(image_url),
+        "expiresAt": source.get("expiresAt", ""),
+    }
+
+
+def fetch_shopee_affiliate_product(affiliate_url: str, category: str = "Ofertas") -> dict:
+    affiliate_url = affiliate_url.strip()
+    if not is_shopee_affiliate_url(affiliate_url):
+        raise ValueError("Use um link de afiliado da Shopee.")
+
+    request = Request(
+        affiliate_url,
+        headers={
+            "Accept": "text/html,application/xhtml+xml",
+            "Accept-Language": "pt-BR,pt;q=0.9",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/137.0.0.0 Safari/537.36",
+        },
+    )
+    with urlopen(request, timeout=25) as response:
+        final_host = (urlparse(response.geturl()).hostname or "").lower()
+        if "shopee" not in final_host:
+            raise ValueError("O link nao direcionou para um produto da Shopee.")
+        page = response.read().decode("utf-8", errors="replace")
+
+    source = {
+        "id": affiliate_url,
+        "affiliateUrl": affiliate_url,
+        "category": category or "Ofertas",
+    }
+    return parse_shopee_affiliate_page(page, source)
+
+
 def parse_mercadolivre_deals_page(page: str, limit: int = 24) -> list[dict]:
     parser = MercadoLivreDealsParser()
     parser.feed(page)

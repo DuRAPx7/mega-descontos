@@ -45,6 +45,9 @@ const botStatusSummary = document.querySelector("#botStatusSummary");
 const mercadoLivreAffiliateLink = document.querySelector("#mercadoLivreAffiliateLink");
 const importMercadoLivreLink = document.querySelector("#importMercadoLivreLink");
 const mercadoLivreImportStatus = document.querySelector("#mercadoLivreImportStatus");
+const shopeeAffiliateLink = document.querySelector("#shopeeAffiliateLink");
+const importShopeeLink = document.querySelector("#importShopeeLink");
+const shopeeImportStatus = document.querySelector("#shopeeImportStatus");
 const refreshMercadoLivreDeals = document.querySelector("#refreshMercadoLivreDeals");
 const candidateList = document.querySelector("#candidateList");
 const candidateStatus = document.querySelector("#candidateStatus");
@@ -132,6 +135,19 @@ function isMercadoLivreAffiliateUrl(value) {
     return parsed.protocol === "https:" && (
       parsed.hostname === "meli.la" ||
       (parsed.hostname.endsWith("mercadolivre.com.br") && parsed.pathname.startsWith("/social/"))
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isShopeeAffiliateUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" && (
+      parsed.hostname === "shopee.com.br" ||
+      parsed.hostname.endsWith(".shopee.com.br") ||
+      parsed.hostname === "shope.ee"
     );
   } catch {
     return false;
@@ -256,6 +272,41 @@ function importMercadoLivreOffer(affiliateLink, category, statusElement) {
     })
     .then(() => {
       statusElement.textContent = "Oferta publicada com os dados reais do Mercado Livre.";
+    })
+    .catch((error) => {
+      adminOffers = previousOffers;
+      statusElement.textContent = error.message;
+      throw error;
+    })
+    .finally(() => {
+      renderAdminOffers();
+    });
+}
+
+function importShopeeOffer(affiliateLink, category, statusElement) {
+  if (!isShopeeAffiliateUrl(affiliateLink)) {
+    statusElement.textContent = "Cole um link afiliado valido da Shopee.";
+    return Promise.reject(new Error("Link de afiliado invalido."));
+  }
+
+  statusElement.textContent = "Buscando titulo, imagem e precos no link da Shopee...";
+  const previousOffers = [...adminOffers];
+  return fetch("/api/shopee/import-link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ affiliateUrl: affiliateLink, category: category || "Ofertas" })
+  })
+    .then((response) => response.json().then((payload) => ({ response, payload })))
+    .then(({ response, payload }) => {
+      if (!response.ok) {
+        throw new Error(payload.error || "Nao foi possivel ler esse link da Shopee.");
+      }
+      const offer = payload.offer;
+      adminOffers = [offer, ...adminOffers.filter((item) => String(item.id) !== String(offer.id))];
+      return saveAdminOffers().then(() => offer);
+    })
+    .then(() => {
+      statusElement.textContent = "Oferta da Shopee publicada com dados reais.";
     })
     .catch((error) => {
       adminOffers = previousOffers;
@@ -681,6 +732,15 @@ importMercadoLivreLink.addEventListener("click", () => {
   importMercadoLivreOffer(affiliateLink, "Ofertas", mercadoLivreImportStatus)
     .then(() => {
       mercadoLivreAffiliateLink.value = "";
+    })
+    .catch(() => {});
+});
+
+importShopeeLink.addEventListener("click", () => {
+  const affiliateLink = shopeeAffiliateLink.value.trim();
+  importShopeeOffer(affiliateLink, category.value || "Ofertas", shopeeImportStatus)
+    .then(() => {
+      shopeeAffiliateLink.value = "";
     })
     .catch(() => {});
 });

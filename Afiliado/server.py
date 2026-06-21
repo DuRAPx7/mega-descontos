@@ -375,6 +375,27 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 write_json(self, {"error": str(error)}, 400)
             return
 
+        if parsed.path == "/api/shopee/import-link":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            try:
+                payload = read_json_body(self) or {}
+                if not isinstance(payload, dict):
+                    raise ValueError("Dados invalidos.")
+                affiliate_url = str(payload.get("affiliateUrl") or "").strip()
+                category = str(payload.get("category") or "Ofertas").strip()
+                bot = load_discount_bot()
+                product = bot.fetch_shopee_affiliate_product(affiliate_url, category)
+                offer = bot.normalize_product(product, minimum_discount=1)
+                if not offer:
+                    raise ValueError("O link nao informou uma oferta ativa com preco anterior e atual.")
+                offer["source"] = "shopee_affiliate_link"
+                write_json(self, {"offer": offer})
+            except Exception as error:
+                write_json(self, {"error": str(error)}, 400)
+            return
+
         write_json(self, {"error": "Rota nao encontrada."}, 404)
 
     def do_PUT(self) -> None:
