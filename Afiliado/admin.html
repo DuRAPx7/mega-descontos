@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Admin - Mega Descontos</title>
     <script src="theme.js"></script>
-    <link rel="icon" type="image/x-icon" href="favicon.ico?v=20260620-3">
+    <link rel="icon" type="image/png" href="assets/mega-descontos-icon.png">
     <link rel="apple-touch-icon" href="assets/mega-descontos-icon.png">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="admin.css">
@@ -13,7 +13,7 @@
   <body class="admin-page">
     <header class="admin-header">
       <a class="brand" href="index.html" aria-label="Mega Descontos">
-        <img class="brand-logo" src="assets/mega-descontos-icon.png?v=20260620-4" alt="" aria-hidden="true">
+        <img src="assets/mega-descontos-icon.png" alt="" aria-hidden="true" style="width:44px;height:44px;display:block;flex:0 0 44px;object-fit:contain;">
         <span>
           <strong>MEGA</strong>
           <strong>DESCONTOS</strong>
@@ -127,18 +127,6 @@
             <p id="mercadoLivreImportStatus" class="import-status" role="status" aria-live="polite"></p>
           </div>
 
-          <div class="import-panel integration-panel">
-            <div>
-              <h2>Adicionar pelo link da Shopee</h2>
-              <p>Cole seu link afiliado da Shopee. O sistema tenta puxar titulo, imagem e precos reais.</p>
-            </div>
-            <div class="integration-actions">
-              <input id="shopeeAffiliateLink" type="url" placeholder="https://s.shopee.com.br/seu-link">
-              <button id="importShopeeLink" type="button">Buscar e publicar</button>
-            </div>
-            <p id="shopeeImportStatus" class="import-status" role="status" aria-live="polite"></p>
-          </div>
-
           <div class="import-panel">
             <div>
               <h2>Status do bot</h2>
@@ -182,6 +170,6 @@
 
     <script src="data/offers.js"></script>
     <script>window.MegaTheme.init();</script>
-    <script src="admin.js?v=20260621-1"></script>
+    <script src="admin.js?v=20260620-3"></script>
   </body>
 </html>
