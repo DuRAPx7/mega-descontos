@@ -7,6 +7,7 @@ import time
 from http.cookiejar import CookieJar
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
+from urllib.error import HTTPError
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 
 from mercadolivre_linkbuilder_bot import (
@@ -380,6 +381,81 @@ def write_csv(output_path: Path, source_links: list[str], generated_links: list[
             writer.writerow({"produto_url": product_url, "link_afiliado": affiliate_url, "status": status})
 
 
+def parse_brl_price(value: str) -> float | None:
+    match = re.search(r"R\$\s*([\d.]+,\d{2})", value)
+    if not match:
+        return None
+    return float(match.group(1).replace(".", "").replace(",", "."))
+
+
+def collect_product_details(source_links: list[str], affiliate_links: list[str], cdp_url: str) -> list[dict | None]:
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as error:
+        raise RuntimeError("Instale as dependencias com: pip install -r requirements.txt") from error
+
+    playwright = sync_playwright().start()
+    details = []
+    try:
+        browser = playwright.chromium.connect_over_cdp(cdp_url)
+        context = browser.contexts[0] if browser.contexts else browser.new_context()
+        page = context.new_page()
+        total = len(source_links)
+        for index, source_link in enumerate(source_links):
+            affiliate_link = affiliate_links[index] if index < len(affiliate_links) else ""
+            print(f"Coletando dados do produto {index + 1}/{total}...")
+            try:
+                page.goto(source_link, wait_until="domcontentloaded", timeout=60_000)
+                page.wait_for_timeout(3_000)
+                raw = page.evaluate(
+                    r"""
+                    () => {
+                      const visible = (node) => {
+                        const style = getComputedStyle(node);
+                        return style.display !== "none" && style.visibility !== "hidden";
+                      };
+                      const texts = [...document.querySelectorAll("div, span")]
+                        .filter((node) => node.children.length === 0 && visible(node))
+                        .map((node) => (node.innerText || node.textContent || "").trim());
+                      return {
+                        title: document.querySelector('meta[property="og:title"]')?.content || document.title || "",
+                        image: document.querySelector('meta[property="og:image"]')?.content || "",
+                        prices: texts.filter((text) => /^R\$\s*[\d.]+,\d{2}/.test(text)),
+                        discounts: texts.filter((text) => /^-\d{1,2}%$/.test(text)),
+                      };
+                    }
+                    """
+                )
+                current_price = parse_brl_price(raw.get("prices", [""])[0]) if raw.get("prices") else None
+                old_price = parse_brl_price(raw.get("prices", ["", ""])[1]) if len(raw.get("prices", [])) > 1 else None
+                if current_price and (not old_price or old_price <= current_price) and raw.get("discounts"):
+                    discount = int(re.search(r"\d+", raw["discounts"][0]).group())
+                    if 0 < discount < 100:
+                        old_price = current_price / (1 - discount / 100)
+                title = re.sub(r"\s*\|\s*Shopee.*$", "", str(raw.get("title") or "")).strip()
+                image = str(raw.get("image") or "").strip()
+                if not title or not image.startswith("https://") or not current_price or not old_price or old_price <= current_price:
+                    raise ValueError("titulo, imagem ou precos nao foram encontrados na pagina")
+                details.append(
+                    {
+                        "productUrl": source_link,
+                        "affiliateUrl": affiliate_link,
+                        "title": title,
+                        "image": image,
+                        "currentPrice": current_price,
+                        "oldPrice": round(old_price, 2),
+                        "category": infer_category_from_url(source_link),
+                    }
+                )
+            except Exception as error:
+                print(f"  Nao consegui coletar este produto: {error}")
+                details.append(None)
+        page.close()
+    finally:
+        playwright.stop()
+    return details
+
+
 def api_request(opener, method: str, url: str, payload: object | None = None) -> object:
     body = None
     headers = {"Accept": "application/json"}
@@ -387,12 +463,27 @@ def api_request(opener, method: str, url: str, payload: object | None = None) ->
         body = json.dumps(payload).encode("utf-8")
         headers["Content-Type"] = "application/json"
     request = Request(url, data=body, headers=headers, method=method)
-    with opener.open(request, timeout=30) as response:
-        text = response.read().decode("utf-8")
+    try:
+        with opener.open(request, timeout=30) as response:
+            text = response.read().decode("utf-8")
+    except HTTPError as error:
+        response_text = error.read().decode("utf-8", errors="replace")
+        try:
+            message = json.loads(response_text).get("error") or response_text
+        except json.JSONDecodeError:
+            message = response_text
+        raise RuntimeError(f"HTTP {error.code}: {message}") from error
     return json.loads(text) if text else {}
 
 
-def publish_to_site(site_url: str, username: str, password: str, source_links: list[str], affiliate_links: list[str]) -> list[str]:
+def publish_to_site(
+    site_url: str,
+    username: str,
+    password: str,
+    source_links: list[str],
+    affiliate_links: list[str],
+    product_details: list[dict | None],
+) -> list[str]:
     cookie_jar = CookieJar()
     opener = build_opener(HTTPCookieProcessor(cookie_jar))
     base_url = site_url.rstrip("/") + "/"
@@ -415,7 +506,11 @@ def publish_to_site(site_url: str, username: str, password: str, source_links: l
                 opener,
                 "POST",
                 urljoin(base_url, "api/shopee/import-link"),
-                {"affiliateUrl": affiliate_link, "category": infer_category_from_url(source_link)},
+                product_details[index] if index < len(product_details) and product_details[index] else {
+                    "affiliateUrl": affiliate_link,
+                    "productUrl": source_link,
+                    "category": infer_category_from_url(source_link),
+                },
             )
             offer = payload.get("offer")
             if not isinstance(offer, dict):
@@ -484,12 +579,26 @@ def main() -> None:
     generated_links = [*ready_links, *converted_links]
     statuses = None
     if args.publish_site:
-        statuses = publish_to_site(args.site_url, args.admin_user, args.admin_password, source_links, generated_links)
+        product_details = collect_product_details(source_links, generated_links, args.cdp_url)
+        statuses = publish_to_site(
+            args.site_url,
+            args.admin_user,
+            args.admin_password,
+            source_links,
+            generated_links,
+            product_details,
+        )
 
     write_csv(Path(args.output), source_links, generated_links, statuses)
     print(f"{len(generated_links)} links afiliados Shopee gerados.")
     print(f"CSV salvo em {args.output}")
     if args.publish_site:
+        failed = [status for status in statuses or [] if status.startswith("erro_")]
+        if failed:
+            print(f"Publicacao incompleta: {len(failed)} produto(s) rejeitado(s).")
+            for status in failed:
+                print(f"  {status}")
+            raise SystemExit(1)
         print("Publicacao no Mega Descontos concluida.")
 
 

@@ -386,7 +386,22 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 affiliate_url = str(payload.get("affiliateUrl") or "").strip()
                 category = str(payload.get("category") or "Ofertas").strip()
                 bot = load_discount_bot()
-                product = bot.fetch_shopee_affiliate_product(affiliate_url, category)
+                if all(payload.get(field) not in (None, "") for field in ("title", "image", "oldPrice", "currentPrice")):
+                    if not bot.is_shopee_affiliate_url(affiliate_url):
+                        raise ValueError("Use um link de afiliado da Shopee.")
+                    product = {
+                        "id": str(payload.get("productUrl") or affiliate_url),
+                        "title": str(payload["title"]).strip(),
+                        "store": "Shopee",
+                        "category": category,
+                        "affiliateUrl": affiliate_url,
+                        "oldPrice": float(payload["oldPrice"]),
+                        "currentPrice": float(payload["currentPrice"]),
+                        "image": str(payload["image"]).strip(),
+                        "expiresAt": str(payload.get("expiresAt") or ""),
+                    }
+                else:
+                    product = bot.fetch_shopee_affiliate_product(affiliate_url, category)
                 offer = bot.normalize_product(product, minimum_discount=1)
                 if not offer:
                     raise ValueError("O link nao informou uma oferta ativa com preco anterior e atual.")
