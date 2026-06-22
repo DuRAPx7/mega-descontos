@@ -48,6 +48,9 @@ const mercadoLivreImportStatus = document.querySelector("#mercadoLivreImportStat
 const shopeeAffiliateLink = document.querySelector("#shopeeAffiliateLink");
 const importShopeeLink = document.querySelector("#importShopeeLink");
 const shopeeImportStatus = document.querySelector("#shopeeImportStatus");
+const amazonAffiliateLink = document.querySelector("#amazonAffiliateLink");
+const importAmazonLink = document.querySelector("#importAmazonLink");
+const amazonImportStatus = document.querySelector("#amazonImportStatus");
 const refreshMercadoLivreDeals = document.querySelector("#refreshMercadoLivreDeals");
 const candidateList = document.querySelector("#candidateList");
 const candidateStatus = document.querySelector("#candidateStatus");
@@ -148,6 +151,19 @@ function isShopeeAffiliateUrl(value) {
       parsed.hostname === "shopee.com.br" ||
       parsed.hostname.endsWith(".shopee.com.br") ||
       parsed.hostname === "shope.ee"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isAmazonUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" && (
+      parsed.hostname === "amzn.to" ||
+      parsed.hostname.endsWith("amazon.com.br") ||
+      parsed.hostname.endsWith("amazon.com")
     );
   } catch {
     return false;
@@ -307,6 +323,41 @@ function importShopeeOffer(affiliateLink, category, statusElement) {
     })
     .then(() => {
       statusElement.textContent = "Oferta da Shopee publicada com dados reais.";
+    })
+    .catch((error) => {
+      adminOffers = previousOffers;
+      statusElement.textContent = error.message;
+      throw error;
+    })
+    .finally(() => {
+      renderAdminOffers();
+    });
+}
+
+function importAmazonOffer(affiliateLink, category, statusElement) {
+  if (!isAmazonUrl(affiliateLink)) {
+    statusElement.textContent = "Cole um link da Amazon ou amzn.to.";
+    return Promise.reject(new Error("Link da Amazon invalido."));
+  }
+
+  statusElement.textContent = "Buscando titulo, imagem e precos no link da Amazon...";
+  const previousOffers = [...adminOffers];
+  return fetch("/api/amazon/import-link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ affiliateUrl: affiliateLink, category: category || "Ofertas" })
+  })
+    .then((response) => response.json().then((payload) => ({ response, payload })))
+    .then(({ response, payload }) => {
+      if (!response.ok) {
+        throw new Error(payload.error || "Nao foi possivel ler esse link da Amazon.");
+      }
+      const offer = payload.offer;
+      adminOffers = [offer, ...adminOffers.filter((item) => String(item.id) !== String(offer.id))];
+      return saveAdminOffers().then(() => offer);
+    })
+    .then(() => {
+      statusElement.textContent = "Oferta da Amazon publicada com dados reais.";
     })
     .catch((error) => {
       adminOffers = previousOffers;
@@ -741,6 +792,15 @@ importShopeeLink.addEventListener("click", () => {
   importShopeeOffer(affiliateLink, category.value || "Ofertas", shopeeImportStatus)
     .then(() => {
       shopeeAffiliateLink.value = "";
+    })
+    .catch(() => {});
+});
+
+importAmazonLink.addEventListener("click", () => {
+  const affiliateLink = amazonAffiliateLink.value.trim();
+  importAmazonOffer(affiliateLink, category.value || "Ofertas", amazonImportStatus)
+    .then(() => {
+      amazonAffiliateLink.value = "";
     })
     .catch(() => {});
 });

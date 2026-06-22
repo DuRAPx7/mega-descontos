@@ -266,6 +266,127 @@ def fetch_mercadolivre_affiliate_product(affiliate_url: str, category: str = "Of
     return parse_mercadolivre_affiliate_page(page, source)
 
 
+def is_amazon_url(value: str) -> bool:
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return False
+    hostname = (parsed.hostname or "").lower()
+    return parsed.scheme == "https" and (
+        hostname == "amzn.to"
+        or hostname.endswith("amazon.com.br")
+        or hostname.endswith("amazon.com")
+    )
+
+
+def extract_amazon_asin(url: str, page: str = "") -> str:
+    parsed = urlparse(url)
+    path = parsed.path
+    patterns = [
+        r"/(?:dp|gp/product|exec/obidos/ASIN)/([A-Z0-9]{10})",
+        r"/product/([A-Z0-9]{10})",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, path, re.IGNORECASE)
+        if match:
+            return match.group(1).upper()
+
+    for query_key, query_value in parse_qsl(parsed.query, keep_blank_values=True):
+        if query_key.lower() == "asin" and re.fullmatch(r"[A-Z0-9]{10}", query_value, re.IGNORECASE):
+            return query_value.upper()
+
+    match = re.search(r'"asin"\s*:\s*"([A-Z0-9]{10})"', page, re.IGNORECASE)
+    return match.group(1).upper() if match else ""
+
+
+def ensure_amazon_affiliate_url(url: str) -> str:
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or "").lower()
+    if hostname == "amzn.to":
+        return url
+
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    associate_tag = credential("AMAZON_ASSOCIATE_TAG")
+    if associate_tag and not query.get("tag"):
+        query["tag"] = associate_tag
+    return urlunparse(parsed._replace(query=urlencode(query)))
+
+
+def extract_amazon_prices(page: str) -> tuple[float | None, float | None]:
+    candidates = []
+    for match in re.finditer(r"R\$\s*\d[\d.]*,\d{2}", html.unescape(page)):
+        try:
+            price = parse_price(match.group(0))
+        except ValueError:
+            continue
+        if price > 0 and price not in candidates:
+            candidates.append(price)
+
+    if not candidates:
+        return None, None
+
+    current_price = candidates[0]
+    old_price = next((price for price in candidates[1:] if price > current_price), None)
+    return current_price, old_price
+
+
+def parse_amazon_affiliate_page(page: str, source: dict) -> dict:
+    parser = ProductMetadataParser()
+    parser.feed(page)
+    title = parser.metadata.get("og:title") or parser.metadata.get("title") or ""
+    title_match = re.search(r"<title[^>]*>(.*?)</title>", page, re.IGNORECASE | re.DOTALL)
+    if not title and title_match:
+        title = re.sub(r"\s+", " ", title_match.group(1)).strip()
+    title = html.unescape(title).replace("Amazon.com.br:", "").strip(" -")
+    image_url = parser.metadata.get("og:image") or parser.metadata.get("image") or ""
+    current_price, old_price = extract_amazon_prices(page)
+
+    if not title or not image_url or not current_price or not old_price:
+        raise ValueError("A pagina da Amazon nao informou titulo, imagem e os dois precos da oferta.")
+
+    final_url = source.get("productUrl") or source["affiliateUrl"]
+    return {
+        "id": extract_amazon_asin(str(final_url), page) or source["affiliateUrl"],
+        "title": title,
+        "store": "Amazon",
+        "category": source.get("category", "Ofertas"),
+        "affiliateUrl": source["affiliateUrl"],
+        "oldPrice": old_price,
+        "currentPrice": current_price,
+        "image": normalize_image_url(image_url),
+        "expiresAt": source.get("expiresAt", ""),
+    }
+
+
+def fetch_amazon_affiliate_product(affiliate_url: str, category: str = "Ofertas") -> dict:
+    affiliate_url = affiliate_url.strip()
+    if not is_amazon_url(affiliate_url):
+        raise ValueError("Use um link da Amazon ou amzn.to.")
+
+    request = Request(
+        ensure_amazon_affiliate_url(affiliate_url),
+        headers={
+            "Accept": "text/html,application/xhtml+xml",
+            "Accept-Language": "pt-BR,pt;q=0.9",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/137.0.0.0 Safari/537.36",
+        },
+    )
+    with urlopen(request, timeout=25) as response:
+        final_url = response.geturl()
+        final_host = (urlparse(final_url).hostname or "").lower()
+        if "amazon." not in final_host:
+            raise ValueError("O link nao direcionou para um produto da Amazon.")
+        page = response.read().decode("utf-8", errors="replace")
+
+    source = {
+        "id": extract_amazon_asin(final_url, page) or affiliate_url,
+        "affiliateUrl": ensure_amazon_affiliate_url(final_url),
+        "productUrl": final_url,
+        "category": category or "Ofertas",
+    }
+    return parse_amazon_affiliate_page(page, source)
+
+
 def fetch_mercadolivre_affiliate_link(source: dict) -> list[dict]:
     name = source.get("name") or source.get("affiliateUrl", "Link Mercado Livre")
     if source.get("enabled") is False:

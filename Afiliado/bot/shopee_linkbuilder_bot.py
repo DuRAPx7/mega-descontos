@@ -389,6 +389,15 @@ def parse_brl_price(value: str) -> float | None:
     return float(match.group(1).replace(".", "").replace(",", "."))
 
 
+def first_price_above(prices: list[float], current_price: float | None) -> float | None:
+    if current_price is None:
+        return None
+    for price in prices[1:]:
+        if price > current_price:
+            return price
+    return None
+
+
 def collect_product_details(source_links: list[str], affiliate_links: list[str], cdp_url: str) -> list[dict | None]:
     try:
         from playwright.sync_api import sync_playwright
@@ -407,28 +416,57 @@ def collect_product_details(source_links: list[str], affiliate_links: list[str],
             print(f"Coletando dados do produto {index + 1}/{total}...")
             try:
                 page.goto(source_link, wait_until="domcontentloaded", timeout=60_000)
-                page.wait_for_timeout(3_000)
+                try:
+                    page.wait_for_load_state("networkidle", timeout=12_000)
+                except Exception:
+                    pass
+                page.wait_for_timeout(4_000)
                 raw = page.evaluate(
                     r"""
                     () => {
                       const visible = (node) => {
                         const style = getComputedStyle(node);
-                        return style.display !== "none" && style.visibility !== "hidden";
+                        const box = node.getBoundingClientRect();
+                        return style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0;
                       };
-                      const texts = [...document.querySelectorAll("div, span")]
-                        .filter((node) => node.children.length === 0 && visible(node))
+                      const texts = [...document.querySelectorAll("body, h1, h2, div, span")]
+                        .filter((node) => visible(node))
                         .map((node) => (node.innerText || node.textContent || "").trim());
+                      const bodyText = document.body?.innerText || "";
+                      const titleCandidates = [
+                        document.querySelector('meta[property="og:title"]')?.content,
+                        document.querySelector("h1")?.innerText,
+                        document.title,
+                      ].filter(Boolean);
+                      const imageCandidates = [
+                        document.querySelector('meta[property="og:image"]')?.content,
+                        ...[...document.images]
+                          .filter((image) => visible(image))
+                          .sort((a, b) => (b.naturalWidth * b.naturalHeight) - (a.naturalWidth * a.naturalHeight))
+                          .map((image) => image.currentSrc || image.src),
+                      ].filter(Boolean);
                       return {
-                        title: document.querySelector('meta[property="og:title"]')?.content || document.title || "",
-                        image: document.querySelector('meta[property="og:image"]')?.content || "",
-                        prices: texts.filter((text) => /^R\$\s*[\d.]+,\d{2}/.test(text)),
-                        discounts: texts.filter((text) => /^-\d{1,2}%$/.test(text)),
+                        title: titleCandidates[0] || "",
+                        image: imageCandidates.find((src) => /^https?:\/\//.test(src)) || "",
+                        prices: [...new Set([
+                          ...texts.flatMap((text) => text.match(/R\$\s*[\d.]+,\d{2}/g) || []),
+                          ...(bodyText.match(/R\$\s*[\d.]+,\d{2}/g) || []),
+                        ])],
+                        discounts: [...new Set([
+                          ...texts.flatMap((text) => text.match(/-\d{1,2}%/g) || []),
+                          ...(bodyText.match(/-\d{1,2}%/g) || []),
+                        ])],
                       };
                     }
                     """
                 )
-                current_price = parse_brl_price(raw.get("prices", [""])[0]) if raw.get("prices") else None
-                old_price = parse_brl_price(raw.get("prices", ["", ""])[1]) if len(raw.get("prices", [])) > 1 else None
+                parsed_prices = [
+                    price
+                    for price in (parse_brl_price(price_text) for price_text in raw.get("prices", []))
+                    if price is not None
+                ]
+                current_price = parsed_prices[0] if parsed_prices else None
+                old_price = first_price_above(parsed_prices, current_price)
                 if current_price and (not old_price or old_price <= current_price) and raw.get("discounts"):
                     discount = int(re.search(r"\d+", raw["discounts"][0]).group())
                     if 0 < discount < 100:

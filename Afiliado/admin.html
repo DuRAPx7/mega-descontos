@@ -139,6 +139,18 @@
             <p id="shopeeImportStatus" class="import-status" role="status" aria-live="polite"></p>
           </div>
 
+          <div class="import-panel integration-panel">
+            <div>
+              <h2>Adicionar pelo link da Amazon</h2>
+              <p>Cole o link do produto ou link curto <code>amzn.to</code>. Se houver tag configurada, ela sera aplicada automaticamente.</p>
+            </div>
+            <div class="integration-actions">
+              <input id="amazonAffiliateLink" type="url" placeholder="https://www.amazon.com.br/dp/...">
+              <button id="importAmazonLink" type="button">Buscar e publicar</button>
+            </div>
+            <p id="amazonImportStatus" class="import-status" role="status" aria-live="polite"></p>
+          </div>
+
           <div class="import-panel">
             <div>
               <h2>Status do bot</h2>
@@ -182,6 +194,6 @@
 
     <script src="data/offers.js"></script>
     <script>window.MegaTheme.init();</script>
-    <script src="admin.js?v=20260621-1"></script>
+    <script src="admin.js?v=20260622-amazon-1"></script>
   </body>
 </html>
