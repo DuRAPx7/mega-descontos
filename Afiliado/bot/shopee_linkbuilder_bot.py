@@ -192,13 +192,58 @@ def click_generate(page) -> None:
     raise RuntimeError("Nao encontrei o botao de gerar/converter links na Shopee.")
 
 
+def collect_urls_from_result(candidate, page, source_links: set[str]) -> tuple[list[str], object | None]:
+    result_dialog = candidate.locator(
+        "xpath=ancestor::*[@role='dialog' or contains(translate(@class, 'MODAL', 'modal'), 'modal')][1]"
+    )
+    if not result_dialog.count() or not result_dialog.first.is_visible():
+        return collect_urls_from_page(page, source_links), None
+
+    raw_values = result_dialog.first.evaluate(
+        """
+        (root) => {
+          const values = [root.innerText || root.textContent || ""];
+          root.querySelectorAll("a[href]").forEach((node) => values.push(node.href));
+          root.querySelectorAll("input, textarea").forEach((node) => values.push(node.value || ""));
+          return values;
+        }
+        """
+    )
+    url_pattern = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
+    urls = []
+    seen = set()
+    for value in raw_values:
+        for match in url_pattern.findall(str(value)):
+            cleaned = match.strip().rstrip(".,;)")
+            if is_generated_affiliate_url(cleaned, source_links) and cleaned not in seen:
+                urls.append(cleaned)
+                seen.add(cleaned)
+    return urls, result_dialog.first
+
+
 def finish_generated_batch(page, source_links: set[str], expected_count: int, wait_seconds: int) -> list[str]:
     deadline = time.time() + wait_seconds
     generated = []
+    copy_context = None
+    copy_candidate = None
+    result_dialog = None
     while time.time() < deadline:
-        generated = collect_urls_from_page(page, source_links)
-        if len(generated) >= expected_count:
-            break
+        for context in [page, *page.frames]:
+            copy_buttons = context.get_by_role(
+                "button", name=re.compile(r"^Copiar\s+Links?$", re.IGNORECASE)
+            )
+            for index in range(copy_buttons.count()):
+                candidate = copy_buttons.nth(index)
+                if candidate.is_visible():
+                    copy_context = context
+                    copy_candidate = candidate
+                    break
+            if copy_candidate is not None:
+                break
+        if copy_candidate is not None:
+            generated, result_dialog = collect_urls_from_result(copy_candidate, page, source_links)
+            if len(generated) >= expected_count:
+                break
         page.wait_for_timeout(1_000)
 
     generated = generated[:expected_count]
@@ -207,27 +252,23 @@ def finish_generated_batch(page, source_links: set[str], expected_count: int, wa
             f"A Shopee retornou {len(generated)} de {expected_count} links no lote atual."
         )
 
-    copy_context = None
-    for context in [page, *page.frames]:
-        copy_button = context.get_by_role("button", name=re.compile(r"^Copiar\s+Link$", re.IGNORECASE))
-        for index in range(copy_button.count()):
-            candidate = copy_button.nth(index)
-            if candidate.is_visible():
-                candidate.click(timeout=5_000)
-                copy_context = context
-                break
-        if copy_context is not None:
-            break
-    if copy_context is None:
+    if copy_context is None or copy_candidate is None:
         raise RuntimeError("Os links apareceram, mas nao encontrei o botao 'Copiar Link'.")
+    copy_candidate.click(timeout=5_000)
 
     page.wait_for_timeout(700)
-    visible_copy_button = copy_context.get_by_role("button", name=re.compile(r"^Copiar\s+Link$", re.IGNORECASE))
-    modal_is_open = any(visible_copy_button.nth(index).is_visible() for index in range(visible_copy_button.count()))
+    visible_copy_button = copy_context.get_by_role(
+        "button", name=re.compile(r"^Copiar\s+Links?$", re.IGNORECASE)
+    )
+    modal_is_open = (
+        result_dialog is not None and result_dialog.is_visible()
+    ) or any(visible_copy_button.nth(index).is_visible() for index in range(visible_copy_button.count()))
     if modal_is_open:
         page.keyboard.press("Escape")
         page.wait_for_timeout(500)
-        modal_is_open = any(visible_copy_button.nth(index).is_visible() for index in range(visible_copy_button.count()))
+        modal_is_open = (
+            result_dialog is not None and result_dialog.is_visible()
+        ) or any(visible_copy_button.nth(index).is_visible() for index in range(visible_copy_button.count()))
     if modal_is_open:
         dialogs = copy_context.locator("[role='dialog']:visible, .ant-modal:visible, .shopee-modal:visible")
         for dialog_index in range(dialogs.count()):
@@ -237,7 +278,12 @@ def finish_generated_batch(page, source_links: set[str], expected_count: int, wa
                 if button.is_visible() and "copiar" not in button.inner_text().strip().lower():
                     button.click(timeout=5_000)
                     page.wait_for_timeout(500)
-                    modal_is_open = False
+                    modal_is_open = (
+                        result_dialog is not None and result_dialog.is_visible()
+                    ) or any(
+                        visible_copy_button.nth(index).is_visible()
+                        for index in range(visible_copy_button.count())
+                    )
                     break
             if not modal_is_open:
                 break
@@ -253,12 +299,13 @@ def generate_affiliate_links(
     wait_seconds: int,
     batch_size: int,
     checkpoint_path: Path | None = None,
+    initial_generated: list[str] | None = None,
 ) -> list[str]:
     playwright, page = connect_to_linkbuilder(cdp_url, linkbuilder_url)
     try:
         page.bring_to_front()
-        all_generated = []
-        for start in range(0, len(source_links), batch_size):
+        all_generated = list(initial_generated or [])
+        for start in range(len(all_generated), len(source_links), batch_size):
             batch = source_links[start:start + batch_size]
             batch_number = (start // batch_size) + 1
             total_batches = (len(source_links) + batch_size - 1) // batch_size
@@ -275,6 +322,29 @@ def generate_affiliate_links(
         return all_generated
     finally:
         playwright.stop()
+
+
+def read_generated_checkpoint(output_path: Path, source_links: list[str]) -> list[str]:
+    if not output_path.exists():
+        return []
+    try:
+        with output_path.open("r", encoding="utf-8-sig", newline="") as file:
+            rows = list(csv.DictReader(file))
+    except (OSError, csv.Error):
+        return []
+
+    generated_by_source = {
+        normalize_url(row.get("produto_url", "")): row.get("link_afiliado", "").strip()
+        for row in rows
+        if row.get("produto_url") and row.get("link_afiliado")
+    }
+    completed = []
+    for source_link in source_links:
+        affiliate_link = generated_by_source.get(normalize_url(source_link), "")
+        if not is_ready_affiliate_url(affiliate_link):
+            break
+        completed.append(affiliate_link)
+    return completed
 
 
 def write_csv(output_path: Path, source_links: list[str], generated_links: list[str], statuses: list[str] | None = None) -> None:
@@ -377,6 +447,9 @@ def main() -> None:
     batch_size = max(1, min(args.batch_size, 5))
     converted_links = []
     if product_links:
+        checkpoint_links = read_generated_checkpoint(Path(args.output), product_links)
+        if checkpoint_links:
+            print(f"Retomando apos {len(checkpoint_links)} links ja salvos no CSV.")
         converted_links = generate_affiliate_links(
             product_links,
             args.cdp_url,
@@ -384,6 +457,7 @@ def main() -> None:
             args.wait_seconds,
             batch_size,
             Path(args.output),
+            checkpoint_links,
         )
     source_links = [*ready_links, *product_links]
     generated_links = [*ready_links, *converted_links]
