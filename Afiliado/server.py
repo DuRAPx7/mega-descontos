@@ -29,6 +29,7 @@ PORT = int(os.environ.get("PORT", "8000"))
 BOT_RUN_LOCK = threading.Lock()
 ML_DEALS_CACHE: dict[str, object] = {"expiresAt": 0.0, "candidates": []}
 ML_DEALS_LOCK = threading.Lock()
+APP_VERSION = "shopee-local-metadata-2026-06-22"
 
 
 def load_discount_bot():
@@ -246,6 +247,7 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 self,
                 {
                     "ok": True,
+                    "version": APP_VERSION,
                     "storage": offer_storage.backend,
                     "persistent": offer_storage.backend == "postgresql",
                 },

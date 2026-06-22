@@ -502,11 +502,14 @@ def publish_to_site(
             continue
         try:
             source_link = source_links[index] if index < len(source_links) else ""
+            detail_payload = product_details[index] if index < len(product_details) and product_details[index] else None
+            mode = "dados completos" if detail_payload else "link afiliado"
+            print(f"Publicando Shopee {index + 1}/{len(affiliate_links)} ({mode})...")
             payload = api_request(
                 opener,
                 "POST",
                 urljoin(base_url, "api/shopee/import-link"),
-                product_details[index] if index < len(product_details) and product_details[index] else {
+                detail_payload if detail_payload else {
                     "affiliateUrl": affiliate_link,
                     "productUrl": source_link,
                     "category": infer_category_from_url(source_link),
