@@ -61,10 +61,7 @@ def is_ready_affiliate_url(value: str) -> bool:
 
 
 def is_generated_affiliate_url(value: str, source_links: set[str]) -> bool:
-    if not is_shopee_url(value):
-        return False
-    normalized = normalize_url(value)
-    return normalized not in source_links or is_ready_affiliate_url(value)
+    return is_ready_affiliate_url(value) and normalize_url(value) not in source_links
 
 
 def collect_urls_from_page(page, source_links: set[str]) -> list[str]:
@@ -227,6 +224,8 @@ def finish_generated_batch(page, source_links: set[str], expected_count: int, wa
     copy_context = None
     copy_candidate = None
     result_dialog = None
+    reported_count = -1
+    print("  Aguardando a Shopee exibir os links afiliados do lote...")
     while time.time() < deadline:
         for context in [page, *page.frames]:
             copy_buttons = context.get_by_role(
@@ -242,6 +241,9 @@ def finish_generated_batch(page, source_links: set[str], expected_count: int, wa
                 break
         if copy_candidate is not None:
             generated, result_dialog = collect_urls_from_result(copy_candidate, page, source_links)
+            if len(generated) != reported_count:
+                print(f"  Links validos encontrados: {len(generated)}/{expected_count}")
+                reported_count = len(generated)
             if len(generated) >= expected_count:
                 break
         page.wait_for_timeout(1_000)
