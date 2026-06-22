@@ -136,13 +136,12 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo Cole o caminho completo do CSV baixado na Shopee.
-echo Exemplo: G:\Py\Afiliado\assets\BatchProductLinks.csv
-set /p SHOPEE_CSV=Caminho do CSV: 
-set "SHOPEE_CSV=%SHOPEE_CSV:"=%"
+echo Selecione o CSV baixado na Shopee...
+set "SHOPEE_CSV="
+for /f "usebackq delims=" %%F in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Windows.Forms; $dialog = New-Object System.Windows.Forms.OpenFileDialog; $dialog.Title = 'Selecione o CSV baixado na Shopee'; $dialog.Filter = 'Arquivos CSV (*.csv)|*.csv|Todos os arquivos (*.*)|*.*'; $dialog.InitialDirectory = (Resolve-Path 'assets' -ErrorAction SilentlyContinue); if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $dialog.FileName }"`) do set "SHOPEE_CSV=%%F"
 
 if "%SHOPEE_CSV%"=="" (
-  echo Caminho vazio.
+  echo Nenhum CSV selecionado.
   pause
   exit /b 1
 )
