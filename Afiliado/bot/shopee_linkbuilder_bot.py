@@ -191,7 +191,8 @@ def click_generate(page) -> None:
 
 def collect_urls_from_result(candidate, page, source_links: set[str]) -> tuple[list[str], object | None]:
     result_dialog = candidate.locator(
-        "xpath=ancestor::*[@role='dialog' or contains(translate(@class, 'MODAL', 'modal'), 'modal')][1]"
+        "xpath=ancestor::*[@role='dialog' or "
+        "contains(concat(' ', normalize-space(@class), ' '), ' ant-modal-content ')][1]"
     )
     if not result_dialog.count() or not result_dialog.first.is_visible():
         return collect_urls_from_page(page, source_links), None
@@ -216,6 +217,23 @@ def collect_urls_from_result(candidate, page, source_links: set[str]) -> tuple[l
                 urls.append(cleaned)
                 seen.add(cleaned)
     return urls, result_dialog.first
+
+
+def dismiss_open_result_modal(page) -> None:
+    for context in [page, *page.frames]:
+        copy_buttons = context.get_by_role(
+            "button", name=re.compile(r"^Copiar\s+Links?$", re.IGNORECASE)
+        )
+        if not any(copy_buttons.nth(index).is_visible() for index in range(copy_buttons.count())):
+            continue
+        close_buttons = context.locator("button.ant-modal-close:visible, button[aria-label='Close']:visible")
+        if close_buttons.count():
+            close_buttons.first.click(timeout=5_000)
+            page.wait_for_timeout(500)
+            return
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(500)
+        return
 
 
 def finish_generated_batch(page, source_links: set[str], expected_count: int, wait_seconds: int) -> list[str]:
@@ -312,6 +330,7 @@ def generate_affiliate_links(
             batch_number = (start // batch_size) + 1
             total_batches = (len(source_links) + batch_size - 1) // batch_size
             print(f"Processando lote {batch_number}/{total_batches} ({len(batch)} links)...")
+            dismiss_open_result_modal(page)
             fill_source_links(page, batch)
             click_generate(page)
 
