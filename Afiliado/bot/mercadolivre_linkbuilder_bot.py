@@ -28,7 +28,17 @@ def read_source_links(path: Path) -> list[str]:
         with path.open("r", encoding="utf-8-sig", newline="") as file:
             reader = csv.DictReader(file)
             if reader.fieldnames:
-                preferred = ["productUrl", "produto_url", "url", "link", "produto", "product_url"]
+                preferred = [
+                    "Product Link",
+                    "product link",
+                    "productUrl",
+                    "produto_url",
+                    "url",
+                    "link",
+                    "produto",
+                    "product_url",
+                    "Offer Link",
+                ]
                 field = next((name for name in preferred if name in reader.fieldnames), reader.fieldnames[0])
                 for row in reader:
                     value = str(row.get(field) or "").strip()

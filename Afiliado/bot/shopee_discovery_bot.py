@@ -1,4 +1,5 @@
 import argparse
+import csv
 import re
 import time
 from pathlib import Path
@@ -7,6 +8,7 @@ from urllib.parse import urljoin, urlparse
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT_DIR / "bot" / "links_shopee_promocoes_potenciais.txt"
+DEFAULT_CSV_OUTPUT = ROOT_DIR / "bot" / "shopee_product_offer_export.csv"
 DEFAULT_SOURCES = ROOT_DIR / "bot" / "shopee_discovery_sources.txt"
 DEFAULT_SOURCE_URLS = [
     "https://affiliate.shopee.com.br/offer/product_offer",
@@ -121,48 +123,119 @@ def collect_links_from_page(page, base_url: str) -> list[str]:
     return urls
 
 
-def click_product_offer_mass_links(page, limit: int) -> None:
-    selected = page.evaluate(
-        """
-        (limit) => {
-          const candidates = [...document.querySelectorAll("input[type='checkbox']")]
-            .filter((box) => !box.disabled && box.offsetParent !== null);
-          let total = 0;
-          for (const box of candidates) {
-            if (total >= limit) break;
-            if (!box.checked) box.click();
-            total += 1;
-          }
-          return total;
-        }
-        """,
-        min(max(limit, 1), 100),
-    )
-    if not selected:
-        return
+def select_product_offer_items(page, limit: int, scrolls: int) -> int:
+    selected = 0
+    for _ in range(max(scrolls, 1)):
+        selected = page.evaluate(
+            """
+            (limit) => {
+              const candidates = [...document.querySelectorAll("input[type='checkbox']")]
+                .filter((box) => !box.disabled && box.offsetParent !== null);
+              let total = [...document.querySelectorAll("input[type='checkbox']:checked")]
+                .filter((box) => box.offsetParent !== null).length;
+              for (const box of candidates) {
+                if (total >= limit) break;
+                if (!box.checked) {
+                  box.click();
+                  total += 1;
+                }
+              }
+              return total;
+            }
+            """,
+            min(max(limit, 1), 100),
+        )
+        if selected >= min(max(limit, 1), 100):
+            break
+        page.mouse.wheel(0, 1600)
+        page.wait_for_timeout(800)
+    return selected
 
-    page.wait_for_timeout(700)
-    clicked = page.evaluate(
+
+def click_visible_button_by_text(page, words: list[str]) -> bool:
+    return page.evaluate(
         """
-        () => {
-          const words = ["obter link em massa", "obter link", "gerar link", "get link"];
+        (words) => {
+          const normalized = words.map((word) => word.toLowerCase());
           const nodes = [...document.querySelectorAll("button, [role='button'], a")];
           const target = nodes.reverse().find((node) => {
             if (node.disabled || node.getAttribute("aria-disabled") === "true") return false;
+            const style = window.getComputedStyle(node);
+            if (style.visibility === "hidden" || style.display === "none") return false;
             const text = (node.innerText || node.textContent || "").toLowerCase().trim();
-            return words.some((word) => text.includes(word));
+            return normalized.some((word) => text.includes(word));
           });
           if (!target) return false;
           target.click();
           return true;
         }
-        """
+        """,
+        words,
     )
-    if clicked:
-        page.wait_for_timeout(3_000)
 
 
-def discover_links(source_urls: list[str], cdp_url: str, limit: int, scrolls: int) -> list[str]:
+def has_visible_button_by_text(page, words: list[str]) -> bool:
+    return page.evaluate(
+        """
+        (words) => {
+          const normalized = words.map((word) => word.toLowerCase());
+          return [...document.querySelectorAll("button, [role='button'], a")].some((node) => {
+            if (node.disabled || node.getAttribute("aria-disabled") === "true") return false;
+            const style = window.getComputedStyle(node);
+            if (style.visibility === "hidden" || style.display === "none") return false;
+            const text = (node.innerText || node.textContent || "").toLowerCase().trim();
+            return normalized.some((word) => text.includes(word));
+          });
+        }
+        """,
+        words,
+    )
+
+
+def read_product_offer_csv(path: Path, limit: int) -> list[str]:
+    links = []
+    seen = set()
+    preferred_fields = ["Product Link", "product link", "produto_url", "productUrl", "url", "Offer Link"]
+    with path.open("r", encoding="utf-8-sig", newline="") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            value = ""
+            for field in preferred_fields:
+                if field in row and row.get(field):
+                    value = str(row.get(field) or "").strip()
+                    break
+            if value and is_shopee_host(value) and value not in seen:
+                links.append(value)
+                seen.add(value)
+                if len(links) >= limit:
+                    break
+    return links
+
+
+def download_product_offer_csv(page, output_path: Path, limit: int, scrolls: int) -> Path | None:
+    selected = select_product_offer_items(page, min(limit, 100), scrolls)
+    if not selected:
+        return None
+
+    page.wait_for_timeout(700)
+    if not click_visible_button_by_text(page, ["obter link em massa"]):
+        return None
+
+    page.wait_for_timeout(1_000)
+    try:
+        if not has_visible_button_by_text(page, ["obter link"]):
+            return None
+        with page.expect_download(timeout=120_000) as download_info:
+            click_visible_button_by_text(page, ["obter link"])
+        download = download_info.value
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        download.save_as(str(output_path))
+        return output_path
+    except Exception:
+        return None
+
+
+def discover_links(source_urls: list[str], cdp_url: str, limit: int, scrolls: int, csv_output: Path) -> list[str]:
     playwright, context = connect_browser(cdp_url)
     try:
         page = next((item for item in context.pages if "shopee" in item.url.lower()), None)
@@ -175,8 +248,12 @@ def discover_links(source_urls: list[str], cdp_url: str, limit: int, scrolls: in
             page.goto(source_url, wait_until="domcontentloaded", timeout=60_000)
             page.wait_for_timeout(2_000)
             if "affiliate.shopee.com.br/offer/product_offer" in source_url:
-                click_product_offer_mass_links(page, limit)
-                for link in collect_links_from_page(page, source_url):
+                downloaded_csv = download_product_offer_csv(page, csv_output, limit, scrolls)
+                if downloaded_csv:
+                    links = read_product_offer_csv(downloaded_csv, limit)
+                else:
+                    links = collect_links_from_page(page, source_url)
+                for link in links:
                     if link not in seen:
                         seen.add(link)
                         found.append(link)
@@ -215,13 +292,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Busca links de produtos Shopee para conversao em afiliados.")
     parser.add_argument("--sources", default=str(DEFAULT_SOURCES), help="TXT com paginas onde procurar produtos.")
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT), help="TXT de saida com links de produtos.")
+    parser.add_argument("--csv-output", default=str(DEFAULT_CSV_OUTPUT), help="CSV bruto baixado da pagina de ofertas da Shopee.")
     parser.add_argument("--cdp-url", default="http://127.0.0.1:9222", help="URL CDP do navegador controlavel.")
-    parser.add_argument("--limit", type=int, default=25, help="Quantidade maxima de links para coletar.")
+    parser.add_argument("--limit", type=int, default=100, help="Quantidade maxima de links para coletar.")
     parser.add_argument("--scrolls", type=int, default=8, help="Quantidade de rolagens em cada pagina.")
     args = parser.parse_args()
 
     source_urls = read_source_urls(Path(args.sources))
-    links = discover_links(source_urls, args.cdp_url, max(args.limit, 1), max(args.scrolls, 1))
+    links = discover_links(source_urls, args.cdp_url, max(args.limit, 1), max(args.scrolls, 1), Path(args.csv_output))
     write_links(Path(args.output), links)
     print(f"{len(links)} links de produtos Shopee salvos em {args.output}")
     if not links:

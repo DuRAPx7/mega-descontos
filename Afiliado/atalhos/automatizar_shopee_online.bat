@@ -135,8 +135,8 @@ if %errorlevel% neq 0 (
   pause >nul
 )
 
-echo Buscando links de produtos da Shopee...
-"%PYTHON_EXE%" bot\shopee_discovery_bot.py --limit 25
+echo Baixando CSV de ate 100 produtos da Shopee...
+"%PYTHON_EXE%" bot\shopee_discovery_bot.py --limit 100
 if %errorlevel% neq 0 (
   echo Nao consegui encontrar links de produtos da Shopee automaticamente.
   echo.

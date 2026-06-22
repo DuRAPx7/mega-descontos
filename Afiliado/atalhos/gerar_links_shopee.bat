@@ -40,8 +40,8 @@ if %errorlevel% neq 0 (
   "%PYTHON_EXE%" -m pip install -r requirements.txt
 )
 
-echo Buscando links de produtos da Shopee...
-"%PYTHON_EXE%" bot\shopee_discovery_bot.py --limit 25
+echo Baixando CSV de ate 100 produtos da Shopee...
+"%PYTHON_EXE%" bot\shopee_discovery_bot.py --limit 100
 if %errorlevel% neq 0 (
   echo Nao consegui encontrar links automaticamente.
   echo Edite bot\links_shopee_promocoes_potenciais.txt ou bot\shopee_discovery_sources.txt.
