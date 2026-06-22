@@ -12,6 +12,7 @@ from urllib.request import HTTPCookieProcessor, Request, build_opener
 
 from mercadolivre_linkbuilder_bot import (
     find_existing_similar_offer,
+    infer_category_from_text,
     infer_category_from_url,
     merge_duplicate_offer,
     read_source_links,
@@ -444,7 +445,7 @@ def collect_product_details(source_links: list[str], affiliate_links: list[str],
                         "image": image,
                         "currentPrice": current_price,
                         "oldPrice": round(old_price, 2),
-                        "category": infer_category_from_url(source_link),
+                        "category": infer_category_from_text(title, fallback=infer_category_from_url(source_link)),
                     }
                 )
             except Exception as error:

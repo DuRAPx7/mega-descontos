@@ -84,9 +84,7 @@ def is_generated_affiliate_url(value: str, source_links: set[str]) -> bool:
     )
 
 
-def infer_category_from_url(product_url: str) -> str:
-    text = product_url.lower()
-    rules = [
+CATEGORY_RULES = [
         (
             "Celulares",
             [
@@ -101,21 +99,87 @@ def infer_category_from_url(product_url: str) -> str:
                 "realme",
             ],
         ),
-        ("Eletronicos", ["fone", "headphone", "bluetooth", "caixa-de-som", "smartwatch", "tv-", "televisao"]),
-        ("Informatica", ["notebook", "computador", "pc-", "monitor", "teclado", "mouse", "ssd", "impressora"]),
-        ("Casa e Cozinha", ["cozinha", "air-fryer", "fritadeira", "cafeteira", "panela", "organizador"]),
-        ("Beleza", ["maquiagem", "perfume", "shampoo", "creme", "beleza"]),
-        ("Moda", ["camiseta", "blusa", "calca", "tenis", "moletom", "bolsa"]),
-        ("Esportes", ["bike", "bicicleta", "halter", "academia", "fitness", "esporte"]),
-        ("Livros", ["livro", "box-", "ebook"]),
-        ("Brinquedos", ["brinquedo", "lego", "boneca", "carrinho"]),
-        ("Automotivo", ["pneu", "carro", "moto", "automotivo"]),
-        ("Ferramentas", ["furadeira", "parafusadeira", "ferramenta", "serra"]),
+        (
+            "Ferramentas",
+            [
+                "furadeira",
+                "parafusadeira",
+                "ferramenta",
+                "jogo de chave",
+                "chave catraca",
+                "soquete",
+                "serra",
+                "lixadeira",
+                "esmerilhadeira",
+            ],
+        ),
+        (
+            "Eletronicos",
+            [
+                "fone",
+                "headphone",
+                "bluetooth",
+                "caixa de som",
+                "smartwatch",
+                "relogio inteligente",
+                "tv",
+                "televisao",
+                "projetor",
+                "camera",
+            ],
+        ),
+        ("Informatica", ["notebook", "computador", "pc", "monitor", "teclado", "mouse", "ssd", "impressora"]),
+        (
+            "Casa e Cozinha",
+            [
+                "cozinha",
+                "air fryer",
+                "fritadeira",
+                "cafeteira",
+                "panela",
+                "organizador",
+                "copo termico",
+                "garrafa termica",
+                "utensilio",
+            ],
+        ),
+        ("Beleza", ["maquiagem", "perfume", "shampoo", "creme", "beleza", "hidratante", "batom"]),
+        (
+            "Moda",
+            [
+                "camiseta",
+                "camisa",
+                "blusa",
+                "calca",
+                "tenis",
+                "moletom",
+                "bolsa",
+                "chinelo",
+                "sandalia",
+                "jaqueta",
+                "short",
+                "bermuda",
+                "vestido",
+            ],
+        ),
+        ("Esportes", ["bike", "bicicleta", "halter", "academia", "fitness", "esporte", "suplemento"]),
+        ("Livros", ["livro", "box", "ebook"]),
+        ("Brinquedos", ["brinquedo", "lego", "boneca", "carrinho", "jogo infantil"]),
+        ("Automotivo", ["pneu", "carro", "moto", "automotivo", "capacete", "oleo motor"]),
     ]
-    for category, terms in rules:
+
+
+def infer_category_from_text(value: str, fallback: str = "Ofertas") -> str:
+    text = comparable_text(value)
+    for category, terms in CATEGORY_RULES:
         if any(term in text for term in terms):
             return category
-    return "Ofertas"
+    return fallback or "Ofertas"
+
+
+def infer_category_from_url(product_url: str) -> str:
+    text = product_url.replace("-", " ").replace("_", " ")
+    return infer_category_from_text(text)
 
 
 def comparable_text(value: object) -> str:
