@@ -69,29 +69,32 @@ def is_generated_affiliate_url(value: str, source_links: set[str]) -> bool:
 
 def collect_urls_from_page(page, source_links: set[str]) -> list[str]:
     url_pattern = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
-    raw_values = page.evaluate(
-        """
-        () => {
-          const values = [];
-          document.querySelectorAll("a[href]").forEach((node) => values.push(node.href));
-          document.querySelectorAll("input, textarea").forEach((node) => values.push(node.value || ""));
-          document.querySelectorAll("[data-testid], [class], p, span, div").forEach((node) => {
-            const text = node.innerText || node.textContent || "";
-            if (text.includes("http")) values.push(text);
-          });
-          return values;
-        }
-        """
-    )
-
     urls = []
     seen = set()
-    for value in raw_values:
-        for match in url_pattern.findall(str(value)):
-            cleaned = match.strip().rstrip(".,;)")
-            if is_generated_affiliate_url(cleaned, source_links) and cleaned not in seen:
-                urls.append(cleaned)
-                seen.add(cleaned)
+    for context in [page, *page.frames]:
+        try:
+            raw_values = context.evaluate(
+                """
+                () => {
+                  const values = [];
+                  document.querySelectorAll("a[href]").forEach((node) => values.push(node.href));
+                  document.querySelectorAll("input, textarea").forEach((node) => values.push(node.value || ""));
+                  document.querySelectorAll("[data-testid], [class], p, span, div").forEach((node) => {
+                    const text = node.innerText || node.textContent || "";
+                    if (text.includes("http")) values.push(text);
+                  });
+                  return values;
+                }
+                """
+            )
+        except Exception:
+            continue
+        for value in raw_values:
+            for match in url_pattern.findall(str(value)):
+                cleaned = match.strip().rstrip(".,;)")
+                if is_generated_affiliate_url(cleaned, source_links) and cleaned not in seen:
+                    urls.append(cleaned)
+                    seen.add(cleaned)
     return urls
 
 
@@ -119,7 +122,11 @@ def connect_to_linkbuilder(cdp_url: str, linkbuilder_url: str):
         context = browser.contexts[0] if browser.contexts else browser.new_context()
         page = context.new_page()
     if "custom_link" not in page.url.lower():
-        page.goto(linkbuilder_url, wait_until="domcontentloaded")
+        try:
+            page.goto(linkbuilder_url, wait_until="networkidle", timeout=60_000)
+        except Exception:
+            page.goto(linkbuilder_url, wait_until="domcontentloaded", timeout=60_000)
+    page.wait_for_timeout(3_000)
     return playwright, page
 
 
@@ -132,38 +139,57 @@ def fill_source_links(page, source_links: list[str]) -> None:
         "input[type='url']",
         "input[type='text']",
     ]
-    for selector in selectors:
-        locator = page.locator(selector)
-        if locator.count():
-            locator.first.fill(joined_links)
-            return
+    deadline = time.time() + 45
+    while time.time() < deadline:
+        for context in [page, *page.frames]:
+            for selector in selectors:
+                try:
+                    locator = context.locator(selector)
+                    if locator.count():
+                        locator.first.fill(joined_links, timeout=5_000)
+                        return
+                except Exception:
+                    continue
+        page.wait_for_timeout(1_000)
     raise RuntimeError("Nao encontrei o campo para colar os links na pagina da Shopee.")
 
 
 def click_generate(page) -> None:
-    button_names = ["Gerar", "Converter", "Criar", "Generate", "Convert", "Create"]
-    for name in button_names:
-        button = page.get_by_role("button", name=re.compile(name, re.IGNORECASE))
-        if button.count():
-            button.first.click(timeout=15_000)
-            return
-    clicked = page.evaluate(
-        """
-        () => {
-          const words = ["gerar", "converter", "criar", "generate", "convert", "create"];
-          const buttons = [...document.querySelectorAll("button, [role='button']")];
-          const target = buttons.find((button) => {
-            const text = (button.innerText || button.textContent || "").toLowerCase();
-            return words.some((word) => text.includes(word));
-          });
-          if (!target) return false;
-          target.click();
-          return true;
-        }
-        """
-    )
-    if not clicked:
-        raise RuntimeError("Nao encontrei o botao de gerar/converter links na Shopee.")
+    button_names = ["Obter Link", "Obter link", "Gerar", "Converter", "Criar", "Generate", "Convert", "Create"]
+    deadline = time.time() + 30
+    while time.time() < deadline:
+        for context in [page, *page.frames]:
+            for name in button_names:
+                try:
+                    button = context.get_by_role("button", name=re.compile(name, re.IGNORECASE))
+                    if button.count():
+                        button.first.click(timeout=5_000)
+                        return
+                except Exception:
+                    continue
+            try:
+                clicked = context.evaluate(
+                    """
+                    () => {
+                      const words = ["obter link", "gerar", "converter", "criar", "generate", "convert", "create"];
+                      const buttons = [...document.querySelectorAll("button, [role='button']")];
+                      const target = buttons.find((button) => {
+                        if (button.disabled || button.getAttribute("aria-disabled") === "true") return false;
+                        const text = (button.innerText || button.textContent || "").toLowerCase();
+                        return words.some((word) => text.includes(word));
+                      });
+                      if (!target) return false;
+                      target.click();
+                      return true;
+                    }
+                    """
+                )
+            except Exception:
+                clicked = False
+            if clicked:
+                return
+        page.wait_for_timeout(1_000)
+    raise RuntimeError("Nao encontrei o botao de gerar/converter links na Shopee.")
 
 
 def generate_affiliate_links(source_links: list[str], cdp_url: str, linkbuilder_url: str, wait_seconds: int, batch_size: int) -> list[str]:
