@@ -135,29 +135,27 @@ if %errorlevel% neq 0 (
   pause >nul
 )
 
-echo Baixando CSV de ate 100 produtos da Shopee...
-"%PYTHON_EXE%" bot\shopee_discovery_bot.py --limit 100
-if %errorlevel% neq 0 (
-  echo Nao consegui encontrar links de produtos da Shopee automaticamente.
-  echo.
-  echo Se quiser, edite manualmente:
-  echo bot\links_shopee_promocoes_potenciais.txt
-  echo.
-  echo Ou adicione mais paginas em:
-  echo bot\shopee_discovery_sources.txt
+echo.
+echo Cole o caminho completo do CSV baixado na Shopee.
+echo Exemplo: G:\Py\Afiliado\assets\BatchProductLinks.csv
+set /p SHOPEE_CSV=Caminho do CSV: 
+set "SHOPEE_CSV=%SHOPEE_CSV:"=%"
+
+if "%SHOPEE_CSV%"=="" (
+  echo Caminho vazio.
   pause
   exit /b 1
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$links = Get-Content 'bot\links_shopee_promocoes_potenciais.txt' | Where-Object { $_ -match '^https://.*shopee' -and $_ -notmatch '^\s*#' }; if ($links.Count -gt 0) { exit 0 } else { exit 1 }" >nul 2>nul
-if %errorlevel% neq 0 (
-  echo Nenhum link real de produto da Shopee foi encontrado.
+if not exist "%SHOPEE_CSV%" (
+  echo CSV nao encontrado:
+  echo %SHOPEE_CSV%
   pause
   exit /b 1
 )
 
 echo Gerando links afiliados Shopee e cadastrando no site online...
-"%PYTHON_EXE%" bot\shopee_linkbuilder_bot.py --publish-site --site-url "%SITE_URL%" --admin-user "%ADMIN_USERNAME%" --admin-password "%ADMIN_PASSWORD%" --linkbuilder-url "%SHOPEE_LINKBUILDER_URL%"
+"%PYTHON_EXE%" bot\shopee_linkbuilder_bot.py --input "%SHOPEE_CSV%" --publish-site --site-url "%SITE_URL%" --admin-user "%ADMIN_USERNAME%" --admin-password "%ADMIN_PASSWORD%" --linkbuilder-url "%SHOPEE_LINKBUILDER_URL%"
 if %errorlevel% neq 0 (
   echo Falha ao gerar/cadastrar os links da Shopee.
   pause

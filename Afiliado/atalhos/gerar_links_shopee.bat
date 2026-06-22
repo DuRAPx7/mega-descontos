@@ -7,7 +7,7 @@ echo ==========================================
 echo   Mega Descontos - Gerar links Shopee
 echo ==========================================
 echo.
-echo Entrada: bot\links_shopee_promocoes_potenciais.txt
+echo Entrada: CSV baixado manualmente na Shopee
 echo Saida:   bot\links_shopee_afiliados_gerados.csv
 echo.
 
@@ -40,11 +40,21 @@ if %errorlevel% neq 0 (
   "%PYTHON_EXE%" -m pip install -r requirements.txt
 )
 
-echo Baixando CSV de ate 100 produtos da Shopee...
-"%PYTHON_EXE%" bot\shopee_discovery_bot.py --limit 100
-if %errorlevel% neq 0 (
-  echo Nao consegui encontrar links automaticamente.
-  echo Edite bot\links_shopee_promocoes_potenciais.txt ou bot\shopee_discovery_sources.txt.
+echo.
+echo Cole o caminho completo do CSV baixado na Shopee.
+echo Exemplo: G:\Py\Afiliado\assets\BatchProductLinks.csv
+set /p SHOPEE_CSV=Caminho do CSV: 
+set "SHOPEE_CSV=%SHOPEE_CSV:"=%"
+
+if "%SHOPEE_CSV%"=="" (
+  echo Caminho vazio.
+  pause
+  exit /b 1
+)
+
+if not exist "%SHOPEE_CSV%" (
+  echo CSV nao encontrado:
+  echo %SHOPEE_CSV%
   pause
   exit /b 1
 )
@@ -54,7 +64,7 @@ if exist "shopee_linkbuilder_url.txt" (
   set /p SHOPEE_LINKBUILDER_URL=<shopee_linkbuilder_url.txt
 )
 
-"%PYTHON_EXE%" bot\shopee_linkbuilder_bot.py --linkbuilder-url "%SHOPEE_LINKBUILDER_URL%"
+"%PYTHON_EXE%" bot\shopee_linkbuilder_bot.py --input "%SHOPEE_CSV%" --linkbuilder-url "%SHOPEE_LINKBUILDER_URL%"
 
 echo.
 echo Pronto. Confira o CSV em bot\links_shopee_afiliados_gerados.csv

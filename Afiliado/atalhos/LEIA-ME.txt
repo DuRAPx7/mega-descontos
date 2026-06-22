@@ -9,7 +9,7 @@ Use estes arquivos para operar o projeto sem mexer nos arquivos internos.
    Gera links do Mercado Livre e cadastra no site online.
 
 3. automatizar_shopee_online.bat
-   Gera links da Shopee e cadastra no site online.
+   Le um CSV baixado manualmente na Shopee, gera links afiliados e cadastra no site online.
 
 4. abrir_gerador_mercado_livre.bat
    Abre somente o gerador do Mercado Livre em navegador controlavel.
@@ -21,7 +21,7 @@ Use estes arquivos para operar o projeto sem mexer nos arquivos internos.
    Usa o gerador ja aberto para criar CSV de links Mercado Livre.
 
 7. gerar_links_shopee.bat
-   Usa o gerador ja aberto para criar CSV de links Shopee.
+   Le um CSV baixado manualmente na Shopee e usa o gerador para criar CSV de links afiliados.
 
 8. rodar_bot.bat
    Roda somente o bot de ofertas local.
@@ -29,6 +29,7 @@ Use estes arquivos para operar o projeto sem mexer nos arquivos internos.
 Arquivos de entrada importantes:
 - bot\links_promocoes_potenciais.txt
 - bot\links_shopee_promocoes_potenciais.txt
+- CSV BatchProductLinks baixado na Shopee
 
 Arquivos de saida importantes:
 - bot\links_afiliados_gerados.csv
