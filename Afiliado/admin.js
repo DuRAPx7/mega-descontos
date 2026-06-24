@@ -74,9 +74,9 @@ const automationSources = [
   },
   {
     store: "Shopee",
-    shortcut: "atalhos\\automatizar_shopee_online.bat",
-    mode: "CSV + Link personalizado",
-    detail: "Le CSV da Shopee, gera links em lotes e coleta dados locais."
+    shortcut: "Integracao executada junto ao bot do site",
+    mode: "Open API oficial",
+    detail: "Busca ofertas, precos, imagens e links afiliados diretamente pela API da Shopee."
   },
   {
     store: "Amazon",

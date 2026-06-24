@@ -22,6 +22,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from offer_validation import validate_offer
+from bot.shopee_api_client import ShopeeApiError, fetch_product_offers as fetch_shopee_api_products
 
 DEFAULT_INPUT = ROOT_DIR / "bot" / "produtos_monitorados.json"
 DEFAULT_FEEDS = ROOT_DIR / "bot" / "source_feeds.json"
@@ -791,6 +792,23 @@ def fetch_mercadolivre_search(source: dict) -> list[dict]:
 
 def load_real_source_products(path: Path) -> list[dict]:
     products = []
+
+    if credential("SHOPEE_APP_ID") and credential("SHOPEE_API_SECRET"):
+        try:
+            max_pages = max(1, min(int(credential("SHOPEE_API_MAX_PAGES", "2")), 10))
+            shopee_products = fetch_shopee_api_products(max_pages=max_pages, limit=100)
+            products.extend(shopee_products)
+            record_source_status("Ofertas oficiais Shopee", "shopee_open_api", True, len(shopee_products))
+        except (ShopeeApiError, TypeError, ValueError) as error:
+            record_source_status("Ofertas oficiais Shopee", "shopee_open_api", False, 0, str(error))
+    else:
+        record_source_status(
+            "Ofertas oficiais Shopee",
+            "shopee_open_api",
+            False,
+            0,
+            "Configure SHOPEE_APP_ID e SHOPEE_API_SECRET.",
+        )
 
     for source in load_json_list(path):
         source_type = source.get("type")

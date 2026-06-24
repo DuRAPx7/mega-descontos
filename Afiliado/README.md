@@ -71,8 +71,17 @@ AMAZON_ASSOCIATE_TAG=sua_tag_amazon
 MERCADOLIVRE_AFFILIATE_ID=seu_id_mercado_livre
 MAGALU_PARTNER_ID=seu_id_magalu
 SHOPEE_AFFILIATE_ID=seu_id_shopee
+SHOPEE_APP_ID=seu_app_id_open_api
+SHOPEE_API_SECRET=seu_secret_open_api
+SHOPEE_API_MAX_PAGES=2
 ALIEXPRESS_AFFILIATE_ID=seu_id_aliexpress
 ```
+
+Com `SHOPEE_APP_ID` e `SHOPEE_API_SECRET`, o bot consulta automaticamente a
+Open API oficial da Shopee. Ele busca produtos com melhor desempenho, usa o
+`offerLink` afiliado retornado pela plataforma e envia as ofertas com desconto
+para a fila de revisao do painel administrativo. O segredo deve existir somente
+nas variaveis de ambiente do Render e nunca deve ser salvo no Git.
 
 Para teste local, voce tambem pode copiar `config/affiliate.example.json` para
 `config/affiliate.json` e preencher seus dados. Esse arquivo fica ignorado pelo
@@ -141,6 +150,8 @@ HOST=0.0.0.0
 ADMIN_USERNAME=seu_usuario
 ADMIN_PASSWORD=sua_senha_forte
 DATABASE_URL=postgresql://usuario:senha@servidor:5432/banco
+SHOPEE_APP_ID=seu_app_id_open_api
+SHOPEE_API_SECRET=seu_secret_open_api
 ```
 
 Nao use `admin/admin123` em producao.
