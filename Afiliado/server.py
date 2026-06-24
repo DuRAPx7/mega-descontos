@@ -29,7 +29,7 @@ PORT = int(os.environ.get("PORT", "8000"))
 BOT_RUN_LOCK = threading.Lock()
 ML_DEALS_CACHE: dict[str, object] = {"expiresAt": 0.0, "candidates": []}
 ML_DEALS_LOCK = threading.Lock()
-APP_VERSION = "shopee-open-api-status-2026-06-23"
+APP_VERSION = "clean-admin-2026-06-23"
 
 
 def load_discount_bot():

@@ -52,9 +52,6 @@ const shopeeImportStatus = document.querySelector("#shopeeImportStatus");
 const amazonAffiliateLink = document.querySelector("#amazonAffiliateLink");
 const importAmazonLink = document.querySelector("#importAmazonLink");
 const amazonImportStatus = document.querySelector("#amazonImportStatus");
-const refreshMercadoLivreDeals = document.querySelector("#refreshMercadoLivreDeals");
-const candidateList = document.querySelector("#candidateList");
-const candidateStatus = document.querySelector("#candidateStatus");
 const automationGrid = document.querySelector("#automationGrid");
 const automationStatus = document.querySelector("#automationStatus");
 const reviewOfferList = document.querySelector("#reviewOfferList");
@@ -68,15 +65,13 @@ const moneyFormatter = new Intl.NumberFormat("pt-BR", {
 const automationSources = [
   {
     store: "Mercado Livre",
-    shortcut: "atalhos\\automatizar_mercado_livre_online.bat",
-    mode: "Link Builder",
-    detail: "Busca ofertas, gera meli.la e envia para revisao/publicacao."
+    mode: "Automacao local",
+    detail: "Coleta ofertas e envia os resultados para revisao."
   },
   {
     store: "Shopee",
-    shortcut: "Integracao executada junto ao bot do site",
     mode: "Open API oficial",
-    detail: "Busca ofertas, precos, imagens e links afiliados diretamente pela API da Shopee."
+    detail: "Coleta ofertas oficiais automaticamente."
   },
   {
     store: "Amazon",
@@ -468,7 +463,6 @@ function renderAutomationDashboard(health = {}) {
           <span>${escapeHtml(source.mode)}</span>
         </div>
         <p>${escapeHtml(source.detail)}</p>
-        <code>${escapeHtml(source.shortcut)}</code>
       </article>
     `)
     .join("");
@@ -929,7 +923,7 @@ runBotNow.addEventListener("click", () => {
       return payload;
     })
     .then(async (payload) => {
-      await Promise.all([loadAdminOffersFromApi().then(loadCandidates), loadReviewOffers(), loadBotStatus(), loadAutomationDashboard()]);
+      await Promise.all([loadAdminOffersFromApi(), loadReviewOffers(), loadBotStatus(), loadAutomationDashboard()]);
       const captured = payload.shopee?.count || 0;
       importStatus.textContent = `Bot concluido: ${captured} ofertas da Shopee encontradas e ${payload.reviewOffers || 0} oferta(s) na fila de revisao.`;
     })
@@ -974,13 +968,6 @@ importAmazonLink.addEventListener("click", () => {
     .catch(() => {});
 });
 
-refreshMercadoLivreDeals.addEventListener("click", () => {
-  refreshMercadoLivreDeals.disabled = true;
-  loadCandidates().finally(() => {
-    refreshMercadoLivreDeals.disabled = false;
-  });
-});
-
 loadAdminOffersFromApi()
-  .then(() => Promise.all([loadCandidates(), loadReviewOffers(), loadAutomationDashboard()]));
+  .then(() => Promise.all([loadReviewOffers(), loadAutomationDashboard()]));
 loadBotStatus();
