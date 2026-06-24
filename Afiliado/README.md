@@ -81,7 +81,9 @@ Com `SHOPEE_APP_ID` e `SHOPEE_API_SECRET`, o bot consulta automaticamente a
 Open API oficial da Shopee. Ele busca produtos com melhor desempenho, usa o
 `offerLink` afiliado retornado pela plataforma e envia as ofertas com desconto
 para a fila de revisao do painel administrativo. O segredo deve existir somente
-nas variaveis de ambiente do Render e nunca deve ser salvo no Git.
+nas variaveis de ambiente do Render e nunca deve ser salvo no Git. Cada pagina
+possui no maximo 50 produtos; com `SHOPEE_API_MAX_PAGES=2`, o bot consulta ate
+100 produtos por execucao.
 
 Para teste local, voce tambem pode copiar `config/affiliate.example.json` para
 `config/affiliate.json` e preencher seus dados. Esse arquivo fica ignorado pelo

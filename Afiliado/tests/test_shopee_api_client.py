@@ -26,12 +26,12 @@ class ShopeeApiClientTests(unittest.TestCase):
         )
 
     def test_payload_is_valid_compact_json(self):
-        payload = shopee_api_client._payload(2, 100)
+        payload = shopee_api_client._payload(2, 50)
         decoded = json.loads(payload.decode("utf-8"))
 
         self.assertEqual(decoded["operationName"], "ProductOffers")
-        self.assertEqual(decoded["variables"], {"page": 2, "limit": 100})
-        self.assertIn(b'"variables":{"page":2,"limit":100}', payload)
+        self.assertEqual(decoded["variables"], {"page": 2, "limit": 50})
+        self.assertIn(b'"variables":{"page":2,"limit":50}', payload)
 
     def test_normalizes_discounted_product(self):
         product = shopee_api_client.normalize_product(

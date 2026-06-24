@@ -67,9 +67,9 @@ def _authorization(app_id: str, secret: str, timestamp: int, payload: bytes) -> 
     return f"SHA256 Credential={app_id}, Timestamp={timestamp}, Signature={signature}"
 
 
-def request_product_page(page: int, limit: int = 100) -> dict:
+def request_product_page(page: int, limit: int = 50) -> dict:
     app_id, secret = _credentials()
-    payload = _payload(page, max(1, min(limit, 500)))
+    payload = _payload(page, max(1, min(limit, 50)))
     timestamp = int(time.time())
     request = Request(
         ENDPOINT,
@@ -168,7 +168,7 @@ def normalize_product(node: dict) -> dict | None:
     }
 
 
-def fetch_product_offers(max_pages: int = 2, limit: int = 100) -> list[dict]:
+def fetch_product_offers(max_pages: int = 2, limit: int = 50) -> list[dict]:
     products = []
     seen = set()
     for page in range(1, max(1, max_pages) + 1):

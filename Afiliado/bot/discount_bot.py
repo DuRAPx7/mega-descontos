@@ -796,7 +796,7 @@ def load_real_source_products(path: Path) -> list[dict]:
     if credential("SHOPEE_APP_ID") and credential("SHOPEE_API_SECRET"):
         try:
             max_pages = max(1, min(int(credential("SHOPEE_API_MAX_PAGES", "2")), 10))
-            shopee_products = fetch_shopee_api_products(max_pages=max_pages, limit=100)
+            shopee_products = fetch_shopee_api_products(max_pages=max_pages, limit=50)
             products.extend(shopee_products)
             record_source_status("Ofertas oficiais Shopee", "shopee_open_api", True, len(shopee_products))
         except (ShopeeApiError, TypeError, ValueError) as error:
