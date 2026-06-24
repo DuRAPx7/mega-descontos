@@ -29,7 +29,7 @@ PORT = int(os.environ.get("PORT", "8000"))
 BOT_RUN_LOCK = threading.Lock()
 ML_DEALS_CACHE: dict[str, object] = {"expiresAt": 0.0, "candidates": []}
 ML_DEALS_LOCK = threading.Lock()
-APP_VERSION = "shopee-open-api-2026-06-23"
+APP_VERSION = "shopee-open-api-status-2026-06-23"
 
 
 def load_discount_bot():
@@ -230,10 +230,10 @@ def clear_session_cookie(handler: SimpleHTTPRequestHandler) -> None:
     handler.send_header("Set-Cookie", f"{SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0")
 
 
-def run_bot_once() -> None:
+def run_bot_once() -> dict:
     if not BOT_RUN_LOCK.acquire(blocking=False):
         print("[Mega Descontos] Uma execucao do bot ja esta em andamento.")
-        return
+        return {"ok": False, "error": "Uma execucao do bot ja esta em andamento."}
     try:
         bot = load_discount_bot()
         existing_offers = read_offers()
@@ -251,9 +251,23 @@ def run_bot_once() -> None:
         upsert_review_offers(offers)
         write_candidates(bot.get_candidates())
         removed = remove_expired_offers()
+        status = read_bot_status()
+        shopee_status = next(
+            (source for source in status.get("sources", []) if source.get("type") == "shopee_open_api"),
+            None,
+        )
         print(f"[Mega Descontos] Bot enviou {len(offers)} ofertas para revisao. Expiradas removidas: {removed}.")
+        return {
+            "ok": not shopee_status or bool(shopee_status.get("ok")),
+            "generatedOffers": len(offers),
+            "removedExpired": removed,
+            "reviewOffers": len(read_review_offers()),
+            "shopee": shopee_status,
+            "status": status,
+        }
     except Exception as error:
         print(f"[Mega Descontos] Erro no bot: {error}")
+        return {"ok": False, "error": str(error)}
     finally:
         BOT_RUN_LOCK.release()
 
@@ -402,8 +416,8 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
             if not is_authenticated(self):
                 write_json(self, {"error": "Nao autorizado."}, 401)
                 return
-            run_bot_once()
-            write_json(self, {"ok": True})
+            result = run_bot_once()
+            write_json(self, result, 200 if result.get("ok") else 502)
             return
 
         if parsed.path == "/api/review-offers":

@@ -918,19 +918,26 @@ replaceImport.addEventListener("click", () => {
 
 runBotNow.addEventListener("click", () => {
   importStatus.textContent = "Rodando bot...";
+  runBotNow.disabled = true;
   fetch("/api/run-bot", { method: "POST" })
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error("Nao foi possivel rodar o bot.");
+    .then(async (response) => {
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) {
+        const shopeeError = payload.shopee?.error;
+        throw new Error(shopeeError || payload.error || "Nao foi possivel rodar o bot.");
       }
-      return response.json();
+      return payload;
     })
-    .then(() => Promise.all([loadAdminOffersFromApi().then(loadCandidates), loadReviewOffers(), loadBotStatus(), loadAutomationDashboard()]))
-    .then(() => {
-      importStatus.textContent = "Bot executado e novas ofertas enviadas para revisao.";
+    .then(async (payload) => {
+      await Promise.all([loadAdminOffersFromApi().then(loadCandidates), loadReviewOffers(), loadBotStatus(), loadAutomationDashboard()]);
+      const captured = payload.shopee?.count || 0;
+      importStatus.textContent = `Bot concluido: ${captured} ofertas da Shopee encontradas e ${payload.reviewOffers || 0} oferta(s) na fila de revisao.`;
     })
     .catch((error) => {
-      importStatus.textContent = error.message;
+      importStatus.textContent = `Erro da Shopee: ${error.message}`;
+    })
+    .finally(() => {
+      runBotNow.disabled = false;
     });
 });
 
