@@ -29,6 +29,7 @@ DEFAULT_BOT_SETTINGS = {
     "minimumSales": 10,
     "minimumCommissionRate": 0.0,
     "maxPages": 2,
+    "autoPublishShopee": True,
 }
 SESSION_COOKIE = "mega_admin_session"
 SESSIONS: set[str] = set()
@@ -37,7 +38,7 @@ PORT = int(os.environ.get("PORT", "8000"))
 BOT_RUN_LOCK = threading.Lock()
 ML_DEALS_CACHE: dict[str, object] = {"expiresAt": 0.0, "candidates": []}
 ML_DEALS_LOCK = threading.Lock()
-APP_VERSION = "quality-cleanup-scheduler-2026-06-23"
+APP_VERSION = "automatic-shopee-publishing-2026-06-24"
 
 
 def load_discount_bot():
@@ -92,12 +93,16 @@ def load_admin_config() -> dict:
 
 def normalize_bot_settings(payload: dict | None = None) -> dict:
     source = {**DEFAULT_BOT_SETTINGS, **(payload or {})}
+    auto_publish = source["autoPublishShopee"]
+    if isinstance(auto_publish, str):
+        auto_publish = auto_publish.strip().lower() in {"1", "true", "yes", "on"}
     return {
         "minimumDiscount": max(1, min(int(source["minimumDiscount"]), 90)),
         "minimumRating": max(0.0, min(float(source["minimumRating"]), 5.0)),
         "minimumSales": max(0, min(int(source["minimumSales"]), 1_000_000)),
         "minimumCommissionRate": max(0.0, min(float(source["minimumCommissionRate"]), 1.0)),
         "maxPages": max(1, min(int(source["maxPages"]), 10)),
+        "autoPublishShopee": bool(auto_publish),
     }
 
 
@@ -158,16 +163,18 @@ def write_review_offers(review_offers: list[dict]) -> None:
 
 
 def upsert_review_offers(incoming_offers: list[dict]) -> int:
+    published_ids = {str(offer.get("id")) for offer in read_offers()}
     review_by_id = {
         str(offer.get("id")): offer
         for offer in read_review_offers()
         if offer.get("id") is not None
     }
+    added = 0
     for offer in incoming_offers:
         if not isinstance(offer, dict):
             continue
         offer_id = str(offer.get("id") or offer.get("sourceProductId") or offer.get("affiliateUrl") or offer.get("title") or "")
-        if not offer_id:
+        if not offer_id or offer_id in published_ids:
             continue
         prepared = {
             **offer,
@@ -177,8 +184,30 @@ def upsert_review_offers(incoming_offers: list[dict]) -> int:
             "reviewAddedAt": datetime.now(timezone.utc).isoformat(),
         }
         review_by_id[offer_id] = prepared
+        added += 1
     write_review_offers(list(review_by_id.values()))
-    return len(incoming_offers)
+    return added
+
+
+def publish_automatic_offers(incoming_offers: list[dict]) -> int:
+    valid_offers, rejected = partition_valid_offers(incoming_offers)
+    if rejected:
+        print(f"[Mega Descontos] {len(rejected)} ofertas automaticas rejeitadas pela validacao.")
+    if not valid_offers:
+        return 0
+
+    merged = {str(offer.get("id")): offer for offer in read_offers() if offer.get("id") is not None}
+    for offer in valid_offers:
+        merged[str(offer["id"])] = offer
+    write_offers(list(merged.values()))
+
+    published_ids = {str(offer["id"]) for offer in valid_offers}
+    remaining_review = [
+        offer for offer in read_review_offers()
+        if str(offer.get("id")) not in published_ids
+    ]
+    write_review_offers(remaining_review)
+    return len(valid_offers)
 
 
 def parse_datetime(value: str | None) -> datetime | None:
@@ -317,7 +346,14 @@ def run_bot_once() -> dict:
             existing_offers=existing_offers,
             persist_db=False,
         )
-        upsert_review_offers(offers)
+        shopee_offers = [offer for offer in offers if offer.get("source") == "shopee_open_api"]
+        review_offers = [offer for offer in offers if offer.get("source") != "shopee_open_api"]
+        auto_published = 0
+        if settings["autoPublishShopee"]:
+            auto_published = publish_automatic_offers(shopee_offers)
+        else:
+            review_offers.extend(shopee_offers)
+        added_to_review = upsert_review_offers(review_offers)
         write_candidates(bot.get_candidates())
         status = read_bot_status()
         shopee_status = next(
@@ -332,10 +368,15 @@ def run_bot_once() -> dict:
         if shopee_status and shopee_status.get("ok"):
             active_ids_by_source.setdefault("shopee_open_api", set())
         cleanup = cleanup_catalog(active_ids_by_source)
-        print(f"[Mega Descontos] Bot enviou {len(offers)} ofertas para revisao. Limpeza: {cleanup}.")
+        print(
+            f"[Mega Descontos] Publicadas automaticamente: {auto_published}. "
+            f"Enviadas para revisao: {added_to_review}. Limpeza: {cleanup}."
+        )
         return {
             "ok": not shopee_status or bool(shopee_status.get("ok")),
             "generatedOffers": len(offers),
+            "autoPublished": auto_published,
+            "addedToReview": added_to_review,
             "cleanup": cleanup,
             "reviewOffers": len(read_review_offers()),
             "shopee": shopee_status,

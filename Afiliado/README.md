@@ -198,3 +198,9 @@ GitHub Actions Secret: CRON_SECRET=essa_mesma_chave
 
 No Render, mantenha `RUN_INTERNAL_SCHEDULER=false` para evitar execucoes
 duplicadas. O bot tambem pode ser executado manualmente pelo painel.
+
+Por padrao, `autoPublishShopee` fica ativo nas configuracoes do painel. Produtos
+da Shopee que passarem pelos limites de desconto, avaliacao, vendas e comissao
+sao publicados automaticamente. O mesmo `shopId + itemId` atualiza a oferta
+existente, sem criar duplicidade. Desative essa opcao caso queira que as ofertas
+da Shopee voltem para a fila de revisao.

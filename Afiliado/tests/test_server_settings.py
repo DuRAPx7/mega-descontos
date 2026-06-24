@@ -13,6 +13,7 @@ class ServerSettingsTests(unittest.TestCase):
                 "minimumSales": 30,
                 "minimumCommissionRate": 0.08,
                 "maxPages": 3,
+                "autoPublishShopee": True,
             }
         )
 
@@ -21,6 +22,7 @@ class ServerSettingsTests(unittest.TestCase):
         self.assertEqual(settings["minimumSales"], 30)
         self.assertEqual(settings["minimumCommissionRate"], 0.08)
         self.assertEqual(settings["maxPages"], 3)
+        self.assertTrue(settings["autoPublishShopee"])
 
     def test_clamps_bot_settings(self):
         settings = server.normalize_bot_settings(
@@ -30,6 +32,7 @@ class ServerSettingsTests(unittest.TestCase):
                 "minimumSales": -1,
                 "minimumCommissionRate": 5,
                 "maxPages": 50,
+                "autoPublishShopee": "false",
             }
         )
 
@@ -38,6 +41,7 @@ class ServerSettingsTests(unittest.TestCase):
         self.assertEqual(settings["minimumSales"], 0)
         self.assertEqual(settings["minimumCommissionRate"], 1)
         self.assertEqual(settings["maxPages"], 10)
+        self.assertFalse(settings["autoPublishShopee"])
 
     def test_cleanup_removes_stale_api_offer(self):
         active = {
@@ -64,3 +68,38 @@ class ServerSettingsTests(unittest.TestCase):
 
         self.assertEqual(result["publishedRemoved"], 1)
         self.assertEqual([offer["id"] for offer in written], ["active"])
+
+    def test_automatic_publish_updates_by_id_and_clears_review(self):
+        current = {
+            "id": "shopee-10-20",
+            "title": "Produto antigo",
+            "store": "Shopee",
+            "category": "Ofertas",
+            "oldPrice": 120,
+            "currentPrice": 100,
+            "image": "https://cf.shopee.com.br/file/old.jpg",
+            "affiliateUrl": "https://s.shopee.com.br/old",
+            "source": "shopee_open_api",
+        }
+        updated = {
+            **current,
+            "title": "Produto atualizado",
+            "currentPrice": 80,
+            "image": "https://cf.shopee.com.br/file/new.jpg",
+            "affiliateUrl": "https://s.shopee.com.br/new",
+        }
+        written_offers = []
+        written_review = []
+
+        with (
+            patch.object(server, "read_offers", return_value=[current]),
+            patch.object(server, "write_offers", side_effect=lambda offers: written_offers.extend(offers)),
+            patch.object(server, "read_review_offers", return_value=[current]),
+            patch.object(server, "write_review_offers", side_effect=lambda offers: written_review.extend(offers)),
+        ):
+            total = server.publish_automatic_offers([updated])
+
+        self.assertEqual(total, 1)
+        self.assertEqual(len(written_offers), 1)
+        self.assertEqual(written_offers[0]["title"], "Produto atualizado")
+        self.assertEqual(written_review, [])

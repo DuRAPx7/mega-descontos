@@ -161,7 +161,12 @@ async function loadStatus() {
 function fillSettings() {
   for (const [key, value] of Object.entries(botSettings)) {
     const input = document.querySelector(`#${key}`);
-    if (input) input.value = value;
+    if (!input) continue;
+    if (input.type === "checkbox") {
+      input.checked = Boolean(value);
+    } else {
+      input.value = value;
+    }
   }
 }
 
@@ -178,7 +183,8 @@ botSettingsForm.addEventListener("submit", async (event) => {
     minimumRating: Number(document.querySelector("#minimumRating").value),
     minimumSales: Number(document.querySelector("#minimumSales").value),
     minimumCommissionRate: Number(document.querySelector("#minimumCommissionRate").value),
-    maxPages: Number(document.querySelector("#maxPages").value)
+    maxPages: Number(document.querySelector("#maxPages").value),
+    autoPublishShopee: document.querySelector("#autoPublishShopee").checked
   };
   settingsStatus.textContent = "Salvando...";
   try {
@@ -202,7 +208,7 @@ runBotNow.addEventListener("click", async () => {
     const payload = await api("/api/run-bot", { method: "POST" });
     const captured = payload.shopee?.count || 0;
     const removed = (payload.cleanup?.publishedRemoved || 0) + (payload.cleanup?.reviewRemoved || 0);
-    runBotStatus.textContent = `${captured} ofertas da Shopee passaram pelo filtro. ${removed} ofertas antigas foram removidas.`;
+    runBotStatus.textContent = `${captured} ofertas da Shopee passaram pelo filtro. ${payload.autoPublished || 0} foram publicadas automaticamente e ${removed} antigas foram removidas.`;
     await Promise.all([loadStatus(), loadReviewOffers(), loadPublishedOffers()]);
   } catch (error) {
     runBotStatus.textContent = error.message;

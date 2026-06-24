@@ -54,7 +54,7 @@
         <section class="import-panel settings-panel">
           <div>
             <h2>Configuracoes do bot</h2>
-            <p>Defina o nivel minimo de qualidade para entrar na revisao.</p>
+            <p>Defina o nivel minimo de qualidade para publicar ou revisar.</p>
           </div>
           <form id="botSettingsForm" class="settings-grid">
             <label>Desconto minimo (%)
@@ -71,6 +71,10 @@
             </label>
             <label>Paginas por execucao
               <input id="maxPages" type="number" min="1" max="10" required>
+            </label>
+            <label class="setting-toggle">
+              <input id="autoPublishShopee" type="checkbox">
+              <span>Publicar Shopee automaticamente</span>
             </label>
             <button class="primary-admin-button" type="submit">Salvar configuracoes</button>
           </form>
@@ -104,6 +108,6 @@
     </main>
 
     <script>window.MegaTheme.init();</script>
-    <script src="admin-dashboard.js?v=20260623-1"></script>
+    <script src="admin-dashboard.js?v=20260624-auto-shopee-1"></script>
   </body>
 </html>

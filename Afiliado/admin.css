@@ -663,6 +663,18 @@
   min-height: 44px;
 }
 
+.setting-toggle {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.setting-toggle input {
+  width: 18px;
+  height: 18px;
+}
+
 .review-card,
 .admin-offer-card {
   grid-template-columns: 88px minmax(0, 1fr) auto;
