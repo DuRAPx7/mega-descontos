@@ -41,6 +41,9 @@ class ShopeeApiClientTests(unittest.TestCase):
                 "productName": "Fone Bluetooth",
                 "priceMin": "80",
                 "priceDiscountRate": 20,
+                "ratingStar": "4.8",
+                "sales": 150,
+                "commissionRate": "0.12",
                 "imageUrl": "https://cf.shopee.com.br/file/product.jpg",
                 "productLink": "https://shopee.com.br/product/10/20",
                 "offerLink": "https://s.shopee.com.br/affiliate",
@@ -54,3 +57,26 @@ class ShopeeApiClientTests(unittest.TestCase):
         self.assertEqual(product["oldPrice"], 100.0)
         self.assertEqual(product["currentPrice"], 80.0)
         self.assertEqual(product["affiliateUrl"], "https://s.shopee.com.br/affiliate")
+        self.assertEqual(product["quality"]["sales"], 150)
+
+    def test_rejects_product_below_quality_threshold(self):
+        product = shopee_api_client.normalize_product(
+            {
+                "itemId": 20,
+                "shopId": 10,
+                "productName": "Fone Bluetooth",
+                "priceMin": "80",
+                "priceDiscountRate": 20,
+                "ratingStar": "3.5",
+                "sales": 2,
+                "commissionRate": "0.01",
+                "imageUrl": "https://cf.shopee.com.br/file/product.jpg",
+                "productLink": "https://shopee.com.br/product/10/20",
+                "offerLink": "https://s.shopee.com.br/affiliate",
+            },
+            min_rating=4,
+            min_sales=10,
+            min_commission_rate=0.05,
+        )
+
+        self.assertIsNone(product)

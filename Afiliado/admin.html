@@ -10,198 +10,100 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="admin.css">
   </head>
-  <body class="admin-page">
+  <body class="admin-page compact-admin">
     <header class="admin-header">
       <a class="brand" href="index.html" aria-label="Mega Descontos">
         <img class="brand-logo" src="assets/mega-descontos-icon.png?v=20260620-4" alt="" aria-hidden="true">
-        <span>
-          <strong>MEGA</strong>
-          <strong>DESCONTOS</strong>
-        </span>
+        <span><strong>MEGA</strong><strong>DESCONTOS</strong></span>
       </a>
       <nav class="admin-nav">
         <button class="theme-toggle" type="button" data-theme-toggle>Tema escuro</button>
         <a href="index.html">Ver site</a>
         <button id="runBotNow" type="button">Rodar bot agora</button>
-        <button id="resetOffers" type="button">Limpar ofertas</button>
-        <button id="exportOffers" type="button">Exportar JSON</button>
         <button id="logoutAdmin" type="button">Sair</button>
       </nav>
     </header>
 
-    <main class="admin-shell">
+    <main class="admin-shell compact-admin-shell">
       <section class="admin-intro">
         <div>
           <p class="admin-kicker">Painel administrativo</p>
-          <h1>Cadastrar ofertas</h1>
-          <p>Cadastre somente produtos reais usando a imagem oficial e o link gerado no seu programa de afiliados.</p>
+          <h1>Controle de ofertas</h1>
+          <p>Automacao, revisao e qualidade em um unico lugar.</p>
         </div>
         <div class="admin-stats">
           <strong id="adminTotalOffers">0</strong>
-          <span>ofertas cadastradas</span>
+          <span>ofertas publicadas</span>
         </div>
       </section>
 
-      <section class="admin-layout">
-        <form class="offer-form" id="offerForm">
-          <input type="hidden" id="offerId">
+      <section class="compact-admin-grid">
+        <section class="import-panel status-panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Status das lojas</h2>
+              <p>Resultado da ultima coleta automatizada.</p>
+            </div>
+            <span id="storageStatus" class="status-pill">Verificando</span>
+          </div>
+          <div class="bot-status-list" id="botStatusList"></div>
+          <p class="import-status" id="botStatusSummary"></p>
+          <p class="import-status" id="runBotStatus" role="status" aria-live="polite"></p>
+        </section>
 
-          <label>
-            Produto
-            <input id="title" type="text" placeholder="Ex: Fone Bluetooth JBL" required>
-          </label>
-
-          <div class="form-grid">
-            <label>
-              Loja
-              <select id="store" required>
-                <option value="Amazon">Amazon</option>
-                <option value="Shopee">Shopee</option>
-                <option value="Mercado Livre">Mercado Livre</option>
-                <option value="Magalu">Magalu</option>
-                <option value="AliExpress">AliExpress</option>
-                <option value="Outra">Outra</option>
-              </select>
+        <section class="import-panel settings-panel">
+          <div>
+            <h2>Configuracoes do bot</h2>
+            <p>Defina o nivel minimo de qualidade para entrar na revisao.</p>
+          </div>
+          <form id="botSettingsForm" class="settings-grid">
+            <label>Desconto minimo (%)
+              <input id="minimumDiscount" type="number" min="1" max="90" required>
             </label>
-            <label>
-              Categoria
-              <select id="category" required>
-                <option value="Eletronicos">Eletronicos</option>
-                <option value="Celulares">Celulares</option>
-                <option value="Informatica">Informatica</option>
-                <option value="Casa e Cozinha">Casa e Cozinha</option>
-                <option value="Beleza">Beleza</option>
-                <option value="Moda">Moda</option>
-                <option value="Esportes">Esportes</option>
-                <option value="Livros">Livros</option>
-                <option value="Brinquedos">Brinquedos</option>
-                <option value="Automotivo">Automotivo</option>
-                <option value="Ferramentas">Ferramentas</option>
-                <option value="Ofertas">Ofertas</option>
-              </select>
+            <label>Avaliacao minima
+              <input id="minimumRating" type="number" min="0" max="5" step="0.1" required>
             </label>
-          </div>
-
-          <div class="form-grid">
-            <label>
-              Preco antigo
-              <input id="oldPrice" type="number" min="0" step="0.01" placeholder="209.90" required>
+            <label>Vendas minimas
+              <input id="minimumSales" type="number" min="0" step="1" required>
             </label>
-            <label>
-              Preco atual
-              <input id="currentPrice" type="number" min="0" step="0.01" placeholder="139.90" required>
+            <label>Comissao minima
+              <input id="minimumCommissionRate" type="number" min="0" max="1" step="0.001" required>
             </label>
-          </div>
+            <label>Paginas por execucao
+              <input id="maxPages" type="number" min="1" max="10" required>
+            </label>
+            <button class="primary-admin-button" type="submit">Salvar configuracoes</button>
+          </form>
+          <p class="import-status" id="settingsStatus" role="status" aria-live="polite"></p>
+        </section>
 
-          <label>
-            Link da imagem
-            <input id="image" type="url" placeholder="https://cdn-da-loja.com/imagem-do-produto.jpg" required>
-          </label>
-
-          <label>
-            Link de afiliado
-            <input id="affiliateUrl" type="url" placeholder="Cole o link gerado no painel de afiliados" required>
-          </label>
-
-          <label>
-            Fim da oferta
-            <input id="expiresAt" type="datetime-local">
-          </label>
-
-          <div class="form-actions">
-            <button class="primary-admin-button" type="submit">Salvar oferta</button>
-            <button id="cancelEdit" type="button">Cancelar</button>
-          </div>
-        </form>
-
-        <section class="admin-list" aria-label="Ofertas cadastradas">
-          <div class="import-panel automation-panel">
-            <div>
-              <h2>Central de automacoes</h2>
-              <p>Acompanhe quais lojas possuem coleta automatizada.</p>
-            </div>
-            <div class="automation-grid" id="automationGrid"></div>
-            <p class="import-status" id="automationStatus"></p>
-          </div>
-
-          <div class="import-panel integration-panel">
-            <div>
-              <h2>Adicionar pelo link do Mercado Livre</h2>
-              <p>Cole seu link <code>meli.la</code>. O sistema busca os dados reais e publica a oferta.</p>
-            </div>
-            <div class="integration-actions">
-              <input id="mercadoLivreAffiliateLink" type="url" placeholder="https://meli.la/seu-link">
-              <button id="importMercadoLivreLink" type="button">Buscar e publicar</button>
-            </div>
-            <p id="mercadoLivreImportStatus" class="import-status" role="status" aria-live="polite"></p>
-          </div>
-
-          <div class="import-panel integration-panel">
-            <div>
-              <h2>Adicionar pelo link da Shopee</h2>
-              <p>Cole seu link afiliado da Shopee. O sistema tenta puxar titulo, imagem e precos reais.</p>
-            </div>
-            <div class="integration-actions">
-              <input id="shopeeAffiliateLink" type="url" placeholder="https://s.shopee.com.br/seu-link">
-              <button id="importShopeeLink" type="button">Buscar e publicar</button>
-            </div>
-            <p id="shopeeImportStatus" class="import-status" role="status" aria-live="polite"></p>
-          </div>
-
-          <div class="import-panel integration-panel">
-            <div>
-              <h2>Adicionar pelo link da Amazon</h2>
-              <p>Cole o link do produto ou link curto <code>amzn.to</code>. Se houver tag configurada, ela sera aplicada automaticamente.</p>
-            </div>
-            <div class="integration-actions">
-              <input id="amazonAffiliateLink" type="url" placeholder="https://www.amazon.com.br/dp/...">
-              <button id="importAmazonLink" type="button">Buscar e publicar</button>
-            </div>
-            <p id="amazonImportStatus" class="import-status" role="status" aria-live="polite"></p>
-          </div>
-
-          <div class="import-panel">
-            <div>
-              <h2>Ultimas consultas do bot</h2>
-              <p>Veja se as fontes reais foram consultadas e quantas ofertas entraram.</p>
-            </div>
-            <div class="bot-status-list" id="botStatusList"></div>
-            <p class="import-status" id="botStatusSummary"></p>
-          </div>
-
-          <div class="import-panel">
-            <div>
-              <h2>Importar ofertas manualmente</h2>
-              <p>Use o arquivo gerado em <code>bot/ofertas_geradas.json</code> se quiser importar manualmente.</p>
-            </div>
-            <div class="import-actions">
-              <input id="importOffersFile" type="file" accept=".json,application/json">
-              <button id="mergeImport" type="button">Juntar ofertas</button>
-              <button id="replaceImport" type="button">Substituir tudo</button>
-            </div>
-            <p class="import-status" id="importStatus"></p>
-          </div>
-
-          <div class="import-panel review-panel">
+        <section class="import-panel review-panel compact-span">
+          <div class="panel-heading">
             <div>
               <h2>Fila de revisao</h2>
-              <p>Aprove somente as ofertas boas antes de publicar no site.</p>
+              <p>Aprove somente as ofertas que deseja publicar.</p>
             </div>
-            <div class="review-list" id="reviewOfferList"></div>
-            <p class="import-status" id="reviewStatus"></p>
+            <strong id="reviewCount">0</strong>
           </div>
+          <div class="review-list" id="reviewOfferList"></div>
+          <p class="import-status" id="reviewStatus"></p>
+        </section>
 
-          <div class="admin-list-heading">
-            <h2>Ofertas cadastradas</h2>
-            <input id="adminSearch" type="search" placeholder="Buscar oferta...">
+        <section class="import-panel published-panel compact-span">
+          <div class="panel-heading">
+            <div>
+              <h2>Ofertas publicadas</h2>
+              <p>Produtos atualmente visiveis no site.</p>
+            </div>
+            <input id="adminSearch" type="search" placeholder="Buscar oferta">
           </div>
           <div id="adminOfferList"></div>
+          <p class="import-status" id="publishedStatus"></p>
         </section>
       </section>
     </main>
 
-    <script src="data/offers.js"></script>
     <script>window.MegaTheme.init();</script>
-    <script src="admin.js?v=20260623-clean-admin-1"></script>
+    <script src="admin-dashboard.js?v=20260623-1"></script>
   </body>
 </html>

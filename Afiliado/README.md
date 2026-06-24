@@ -183,3 +183,18 @@ Acesse `/healthz` para conferir o armazenamento ativo. Em producao, o retorno
 correto deve conter `"storage": "postgresql"` e `"persistent": true`.
 
 Nunca publique a `DATABASE_URL` em arquivos do Git ou em capturas de tela.
+
+## Agendamento independente
+
+O workflow `.github/workflows/mega-descontos-bot.yml` acorda o site e executa o
+bot a cada 30 minutos, mesmo quando o Web Service gratuito estiver suspenso.
+
+Configure o mesmo valor secreto nos dois locais:
+
+```text
+Render Environment: CRON_SECRET=uma_chave_longa_e_aleatoria
+GitHub Actions Secret: CRON_SECRET=essa_mesma_chave
+```
+
+No Render, mantenha `RUN_INTERNAL_SCHEDULER=false` para evitar execucoes
+duplicadas. O bot tambem pode ser executado manualmente pelo painel.

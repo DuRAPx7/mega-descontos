@@ -22,6 +22,14 @@ ADMIN_CONFIG = ROOT_DIR / "config" / "admin.json"
 BOT_PATH = ROOT_DIR / "bot" / "discount_bot.py"
 BOT_STATUS = ROOT_DIR / "bot" / "status.json"
 BOT_INTERVAL_SECONDS = 600
+BOT_SETTINGS_PROVIDER = "bot_settings"
+DEFAULT_BOT_SETTINGS = {
+    "minimumDiscount": 15,
+    "minimumRating": 4.0,
+    "minimumSales": 10,
+    "minimumCommissionRate": 0.0,
+    "maxPages": 2,
+}
 SESSION_COOKIE = "mega_admin_session"
 SESSIONS: set[str] = set()
 HOST = os.environ.get("HOST", "127.0.0.1")
@@ -29,7 +37,7 @@ PORT = int(os.environ.get("PORT", "8000"))
 BOT_RUN_LOCK = threading.Lock()
 ML_DEALS_CACHE: dict[str, object] = {"expiresAt": 0.0, "candidates": []}
 ML_DEALS_LOCK = threading.Lock()
-APP_VERSION = "shopee-limit-50-2026-06-23"
+APP_VERSION = "quality-cleanup-scheduler-2026-06-23"
 
 
 def load_discount_bot():
@@ -80,6 +88,35 @@ def load_admin_config() -> dict:
             encoding="utf-8",
         )
     return json.loads(ADMIN_CONFIG.read_text(encoding="utf-8"))
+
+
+def normalize_bot_settings(payload: dict | None = None) -> dict:
+    source = {**DEFAULT_BOT_SETTINGS, **(payload or {})}
+    return {
+        "minimumDiscount": max(1, min(int(source["minimumDiscount"]), 90)),
+        "minimumRating": max(0.0, min(float(source["minimumRating"]), 5.0)),
+        "minimumSales": max(0, min(int(source["minimumSales"]), 1_000_000)),
+        "minimumCommissionRate": max(0.0, min(float(source["minimumCommissionRate"]), 1.0)),
+        "maxPages": max(1, min(int(source["maxPages"]), 10)),
+    }
+
+
+def read_bot_settings() -> dict:
+    ensure_offers_db()
+    return normalize_bot_settings(offer_storage.get_integration(BOT_SETTINGS_PROVIDER))
+
+
+def write_bot_settings(payload: dict) -> dict:
+    settings = normalize_bot_settings(payload)
+    offer_storage.set_integration(BOT_SETTINGS_PROVIDER, settings)
+    return settings
+
+
+def apply_bot_settings(settings: dict) -> None:
+    os.environ["SHOPEE_API_MAX_PAGES"] = str(settings["maxPages"])
+    os.environ["BOT_MIN_RATING"] = str(settings["minimumRating"])
+    os.environ["BOT_MIN_SALES"] = str(settings["minimumSales"])
+    os.environ["BOT_MIN_COMMISSION_RATE"] = str(settings["minimumCommissionRate"])
 
 
 def read_offers() -> list[dict]:
@@ -180,6 +217,36 @@ def remove_invalid_offers() -> int:
     return len(rejected)
 
 
+def cleanup_catalog(active_ids_by_source: dict[str, set[str]] | None = None) -> dict:
+    now = datetime.now(timezone.utc)
+    active_ids_by_source = active_ids_by_source or {}
+
+    def keep_offer(offer: dict) -> bool:
+        expires_at = parse_datetime(str(offer.get("expiresAt") or ""))
+        if expires_at and expires_at <= now:
+            return False
+        source = str(offer.get("source") or "")
+        active_ids = active_ids_by_source.get(source)
+        if active_ids is not None and str(offer.get("id")) not in active_ids:
+            return False
+        return not partition_valid_offers([offer])[1]
+
+    offers = read_offers()
+    active_offers = [offer for offer in offers if keep_offer(offer)]
+    if len(active_offers) != len(offers):
+        write_offers(active_offers)
+
+    review_offers = read_review_offers()
+    active_review = [offer for offer in review_offers if keep_offer(offer)]
+    if len(active_review) != len(review_offers):
+        write_review_offers(active_review)
+
+    return {
+        "publishedRemoved": len(offers) - len(active_offers),
+        "reviewRemoved": len(review_offers) - len(active_review),
+    }
+
+
 def read_json_body(handler: SimpleHTTPRequestHandler) -> object:
     content_length = int(handler.headers.get("Content-Length", "0"))
     raw_body = handler.rfile.read(content_length)
@@ -236,12 +303,14 @@ def run_bot_once() -> dict:
         return {"ok": False, "error": "Uma execucao do bot ja esta em andamento."}
     try:
         bot = load_discount_bot()
+        settings = read_bot_settings()
+        apply_bot_settings(settings)
         existing_offers = read_offers()
         offers = bot.generate_offers(
             bot.DEFAULT_INPUT,
             bot.DEFAULT_OUTPUT,
             bot.DEFAULT_DB,
-            minimum_discount=15,
+            minimum_discount=settings["minimumDiscount"],
             purge_missing=True,
             real_sources_path=bot.DEFAULT_REAL_SOURCES,
             status_path=bot.DEFAULT_STATUS,
@@ -250,20 +319,28 @@ def run_bot_once() -> dict:
         )
         upsert_review_offers(offers)
         write_candidates(bot.get_candidates())
-        removed = remove_expired_offers()
         status = read_bot_status()
         shopee_status = next(
             (source for source in status.get("sources", []) if source.get("type") == "shopee_open_api"),
             None,
         )
-        print(f"[Mega Descontos] Bot enviou {len(offers)} ofertas para revisao. Expiradas removidas: {removed}.")
+        active_ids_by_source = {}
+        for offer in offers:
+            source = str(offer.get("source") or "")
+            if source:
+                active_ids_by_source.setdefault(source, set()).add(str(offer.get("id")))
+        if shopee_status and shopee_status.get("ok"):
+            active_ids_by_source.setdefault("shopee_open_api", set())
+        cleanup = cleanup_catalog(active_ids_by_source)
+        print(f"[Mega Descontos] Bot enviou {len(offers)} ofertas para revisao. Limpeza: {cleanup}.")
         return {
             "ok": not shopee_status or bool(shopee_status.get("ok")),
             "generatedOffers": len(offers),
-            "removedExpired": removed,
+            "cleanup": cleanup,
             "reviewOffers": len(read_review_offers()),
             "shopee": shopee_status,
             "status": status,
+            "settings": settings,
         }
     except Exception as error:
         print(f"[Mega Descontos] Erro no bot: {error}")
@@ -316,6 +393,13 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 write_json(self, {"error": "Nao autorizado."}, 401)
                 return
             write_json(self, read_bot_status())
+            return
+
+        if parsed.path == "/api/bot-settings":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            write_json(self, {"settings": read_bot_settings()})
             return
 
         if parsed.path == "/api/candidates":
@@ -414,6 +498,16 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
 
         if parsed.path == "/api/run-bot":
             if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            result = run_bot_once()
+            write_json(self, result, 200 if result.get("ok") else 502)
+            return
+
+        if parsed.path == "/api/cron/run":
+            expected = os.environ.get("CRON_SECRET", "").strip()
+            provided = self.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+            if not expected or not secrets.compare_digest(provided, expected):
                 write_json(self, {"error": "Nao autorizado."}, 401)
                 return
             result = run_bot_once()
@@ -587,6 +681,21 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
 
     def do_PUT(self) -> None:
         parsed = urlparse(self.path)
+
+        if parsed.path == "/api/bot-settings":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            try:
+                payload = read_json_body(self)
+                if not isinstance(payload, dict):
+                    raise ValueError("Configuracoes invalidas.")
+                settings = write_bot_settings(payload)
+                write_json(self, {"ok": True, "settings": settings})
+            except (KeyError, TypeError, ValueError) as error:
+                write_json(self, {"error": str(error)}, 400)
+            return
+
         if parsed.path != "/api/offers":
             write_json(self, {"error": "Rota nao encontrada."}, 404)
             return
@@ -620,7 +729,8 @@ def run() -> None:
     ensure_offers_db()
     remove_invalid_offers()
     remove_expired_offers()
-    start_bot_scheduler()
+    if os.environ.get("RUN_INTERNAL_SCHEDULER", "true").lower() == "true":
+        start_bot_scheduler()
     server = ThreadingHTTPServer((HOST, PORT), MegaDescontosHandler)
     public_host = "127.0.0.1" if HOST in {"0.0.0.0", ""} else HOST
     print(f"Mega Descontos rodando em http://{public_host}:{PORT}")

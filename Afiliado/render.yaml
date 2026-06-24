@@ -28,5 +28,9 @@ services:
         sync: false
       - key: SHOPEE_API_MAX_PAGES
         value: "2"
+      - key: RUN_INTERNAL_SCHEDULER
+        value: "false"
+      - key: CRON_SECRET
+        sync: false
       - key: ALIEXPRESS_AFFILIATE_ID
         sync: false

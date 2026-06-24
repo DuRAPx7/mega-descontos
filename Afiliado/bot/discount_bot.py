@@ -796,7 +796,13 @@ def load_real_source_products(path: Path) -> list[dict]:
     if credential("SHOPEE_APP_ID") and credential("SHOPEE_API_SECRET"):
         try:
             max_pages = max(1, min(int(credential("SHOPEE_API_MAX_PAGES", "2")), 10))
-            shopee_products = fetch_shopee_api_products(max_pages=max_pages, limit=50)
+            shopee_products = fetch_shopee_api_products(
+                max_pages=max_pages,
+                limit=50,
+                min_rating=float(credential("BOT_MIN_RATING", "4")),
+                min_sales=int(credential("BOT_MIN_SALES", "10")),
+                min_commission_rate=float(credential("BOT_MIN_COMMISSION_RATE", "0")),
+            )
             products.extend(shopee_products)
             record_source_status("Ofertas oficiais Shopee", "shopee_open_api", True, len(shopee_products))
         except (ShopeeApiError, TypeError, ValueError) as error:
@@ -863,7 +869,8 @@ def normalize_product(product: dict, minimum_discount: int) -> dict | None:
         "affiliateUrl": affiliate_url,
         "expiresAt": product.get("expiresAt") or "",
         "foundAt": datetime.now(timezone.utc).isoformat(),
-        "source": "discount_bot",
+        "source": str(product.get("sourceType") or "discount_bot"),
+        "quality": product.get("quality") or {},
     }
     return offer if not validate_offer(offer) else None
 

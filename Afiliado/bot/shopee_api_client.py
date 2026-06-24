@@ -140,16 +140,26 @@ def infer_category(title: str) -> str:
     return "Ofertas"
 
 
-def normalize_product(node: dict) -> dict | None:
+def normalize_product(
+    node: dict,
+    min_rating: float = 0,
+    min_sales: int = 0,
+    min_commission_rate: float = 0,
+) -> dict | None:
     title = str(node.get("productName") or "").strip()
     current_price = _number(node.get("priceMin"))
     discount = int(_number(node.get("priceDiscountRate")))
+    rating = _number(node.get("ratingStar"))
+    sales = int(_number(node.get("sales")))
+    commission_rate = _number(node.get("commissionRate"))
     offer_link = str(node.get("offerLink") or "").strip()
     product_link = str(node.get("productLink") or "").strip()
     image = str(node.get("imageUrl") or "").strip()
     if not title or current_price <= 0 or discount <= 0 or discount >= 100:
         return None
     if not offer_link.startswith("https://") or not image.startswith("https://"):
+        return None
+    if rating < min_rating or sales < min_sales or commission_rate < min_commission_rate:
         return None
 
     old_price = round(current_price / (1 - discount / 100), 2)
@@ -165,16 +175,32 @@ def normalize_product(node: dict) -> dict | None:
         "image": image,
         "expiresAt": _expires_at(node.get("periodEndTime")),
         "sourceType": "shopee_open_api",
+        "quality": {
+            "rating": rating,
+            "sales": sales,
+            "commissionRate": commission_rate,
+        },
     }
 
 
-def fetch_product_offers(max_pages: int = 2, limit: int = 50) -> list[dict]:
+def fetch_product_offers(
+    max_pages: int = 2,
+    limit: int = 50,
+    min_rating: float = 0,
+    min_sales: int = 0,
+    min_commission_rate: float = 0,
+) -> list[dict]:
     products = []
     seen = set()
     for page in range(1, max(1, max_pages) + 1):
         connection = request_product_page(page, limit)
         for node in connection.get("nodes") or []:
-            product = normalize_product(node)
+            product = normalize_product(
+                node,
+                min_rating=min_rating,
+                min_sales=min_sales,
+                min_commission_rate=min_commission_rate,
+            )
             if not product or product["id"] in seen:
                 continue
             products.append(product)
