@@ -15,6 +15,7 @@ if (window.location.protocol === "file:") {
 
 let adminOffers = [...(window.DEFAULT_OFFERS || [])];
 let offerCandidates = [];
+let reviewOffers = [];
 let editingId = null;
 let adminSearchTerm = "";
 
@@ -54,11 +55,36 @@ const amazonImportStatus = document.querySelector("#amazonImportStatus");
 const refreshMercadoLivreDeals = document.querySelector("#refreshMercadoLivreDeals");
 const candidateList = document.querySelector("#candidateList");
 const candidateStatus = document.querySelector("#candidateStatus");
+const automationGrid = document.querySelector("#automationGrid");
+const automationStatus = document.querySelector("#automationStatus");
+const reviewOfferList = document.querySelector("#reviewOfferList");
+const reviewStatus = document.querySelector("#reviewStatus");
 
 const moneyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL"
 });
+
+const automationSources = [
+  {
+    store: "Mercado Livre",
+    shortcut: "atalhos\\automatizar_mercado_livre_online.bat",
+    mode: "Link Builder",
+    detail: "Busca ofertas, gera meli.la e envia para revisao/publicacao."
+  },
+  {
+    store: "Shopee",
+    shortcut: "atalhos\\automatizar_shopee_online.bat",
+    mode: "CSV + Link personalizado",
+    detail: "Le CSV da Shopee, gera links em lotes e coleta dados locais."
+  },
+  {
+    store: "Amazon",
+    shortcut: "atalhos\\automatizar_amazon_online.bat",
+    mode: "Navegador logado",
+    detail: "Lê paginas de ofertas e monta links com sua tag de associado."
+  }
+];
 
 function loadAdminOffers() {
   const savedOffers = localStorage.getItem(OFFERS_STORAGE_KEY);
@@ -425,6 +451,142 @@ function loadBotStatus() {
     });
 }
 
+function renderAutomationDashboard(health = {}) {
+  const persistenceText = health.persistent
+    ? "Banco persistente ativo"
+    : "Banco nao persistente";
+  const persistenceClass = health.persistent ? "ok" : "error";
+  automationStatus.textContent = health.storage
+    ? `${persistenceText}: ${health.storage}. Ofertas cadastradas: ${adminOffers.length}. Na fila: ${reviewOffers.length}.`
+    : `Ofertas cadastradas: ${adminOffers.length}. Na fila: ${reviewOffers.length}.`;
+
+  automationGrid.innerHTML = automationSources
+    .map((source) => `
+      <article class="automation-card ${persistenceClass}">
+        <div>
+          <strong>${escapeHtml(source.store)}</strong>
+          <span>${escapeHtml(source.mode)}</span>
+        </div>
+        <p>${escapeHtml(source.detail)}</p>
+        <code>${escapeHtml(source.shortcut)}</code>
+      </article>
+    `)
+    .join("");
+}
+
+function loadAutomationDashboard() {
+  if (!isHttpPage()) {
+    renderAutomationDashboard();
+    return Promise.resolve();
+  }
+
+  return fetch("/healthz", { cache: "no-store" })
+    .then((response) => response.json())
+    .then(renderAutomationDashboard)
+    .catch(() => renderAutomationDashboard());
+}
+
+function renderReviewOffers() {
+  reviewStatus.textContent = `${reviewOffers.length} oferta(s) aguardando revisao.`;
+  if (!reviewOffers.length) {
+    reviewOfferList.innerHTML = "<p>Nenhuma oferta na fila de revisao.</p>";
+    return;
+  }
+
+  reviewOfferList.innerHTML = reviewOffers
+    .map((offer) => `
+      <article class="review-card">
+        <img src="${escapeHtml(offer.image)}" alt="${escapeHtml(offer.title)}" onerror="this.style.visibility='hidden'">
+        <div>
+          <h3>${escapeHtml(offer.title)}</h3>
+          <p>${escapeHtml(offer.store)} / ${escapeHtml(offer.category)} / ${offer.discount || calculateDiscount(Number(offer.oldPrice), Number(offer.currentPrice))}% OFF</p>
+          <p>${moneyFormatter.format(Number(offer.currentPrice))} antes ${moneyFormatter.format(Number(offer.oldPrice))}</p>
+        </div>
+        <div class="review-actions">
+          <a href="${escapeHtml(offer.affiliateUrl)}" target="_blank" rel="sponsored noopener">Abrir link</a>
+          <button type="button" data-review-approve="${escapeHtml(offer.id)}">Aprovar</button>
+          <button type="button" data-review-reject="${escapeHtml(offer.id)}">Rejeitar</button>
+        </div>
+      </article>
+    `)
+    .join("");
+
+  document.querySelectorAll("[data-review-approve]").forEach((button) => {
+    button.addEventListener("click", () => approveReviewOffer(button.dataset.reviewApprove));
+  });
+  document.querySelectorAll("[data-review-reject]").forEach((button) => {
+    button.addEventListener("click", () => rejectReviewOffer(button.dataset.reviewReject));
+  });
+}
+
+function loadReviewOffers() {
+  if (!isHttpPage()) {
+    reviewOffers = [];
+    renderReviewOffers();
+    return Promise.resolve();
+  }
+
+  return fetch("/api/review-offers", { cache: "no-store" })
+    .then((response) => response.json().then((payload) => ({ response, payload })))
+    .then(({ response, payload }) => {
+      if (!response.ok) {
+        throw new Error(payload.error || "Nao foi possivel carregar a fila de revisao.");
+      }
+      reviewOffers = payload.reviewOffers || [];
+      renderReviewOffers();
+      renderAutomationDashboard();
+    })
+    .catch((error) => {
+      reviewStatus.textContent = error.message;
+    });
+}
+
+function approveReviewOffer(id) {
+  reviewStatus.textContent = "Publicando oferta aprovada...";
+  return fetch("/api/review-offers/approve", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id })
+  })
+    .then((response) => response.json().then((payload) => ({ response, payload })))
+    .then(({ response, payload }) => {
+      if (!response.ok) {
+        throw new Error(payload.error || "Nao foi possivel aprovar a oferta.");
+      }
+      reviewOffers = payload.reviewOffers || [];
+      return loadAdminOffersFromApi();
+    })
+    .then(() => {
+      reviewStatus.textContent = "Oferta aprovada e publicada.";
+      renderReviewOffers();
+      renderAutomationDashboard();
+    })
+    .catch((error) => {
+      reviewStatus.textContent = error.message;
+    });
+}
+
+function rejectReviewOffer(id) {
+  reviewStatus.textContent = "Removendo oferta da fila...";
+  return fetch("/api/review-offers/reject", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id })
+  })
+    .then((response) => response.json().then((payload) => ({ response, payload })))
+    .then(({ response, payload }) => {
+      if (!response.ok) {
+        throw new Error(payload.error || "Nao foi possivel rejeitar a oferta.");
+      }
+      reviewOffers = payload.reviewOffers || [];
+      renderReviewOffers();
+      renderAutomationDashboard();
+    })
+    .catch((error) => {
+      reviewStatus.textContent = error.message;
+    });
+}
+
 function calculateDiscount(oldValue, currentValue) {
   if (oldValue <= 0 || currentValue >= oldValue) {
     return 0;
@@ -763,9 +925,9 @@ runBotNow.addEventListener("click", () => {
       }
       return response.json();
     })
-    .then(() => Promise.all([loadAdminOffersFromApi().then(loadCandidates), loadBotStatus()]))
+    .then(() => Promise.all([loadAdminOffersFromApi().then(loadCandidates), loadReviewOffers(), loadBotStatus(), loadAutomationDashboard()]))
     .then(() => {
-      importStatus.textContent = "Bot executado e ofertas atualizadas.";
+      importStatus.textContent = "Bot executado e novas ofertas enviadas para revisao.";
     })
     .catch((error) => {
       importStatus.textContent = error.message;
@@ -812,5 +974,6 @@ refreshMercadoLivreDeals.addEventListener("click", () => {
   });
 });
 
-loadAdminOffersFromApi().then(loadCandidates);
+loadAdminOffersFromApi()
+  .then(() => Promise.all([loadCandidates(), loadReviewOffers(), loadAutomationDashboard()]));
 loadBotStatus();

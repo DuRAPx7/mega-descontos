@@ -115,6 +115,15 @@
         </form>
 
         <section class="admin-list" aria-label="Ofertas cadastradas">
+          <div class="import-panel automation-panel">
+            <div>
+              <h2>Central de automacoes</h2>
+              <p>Acompanhe os robos por loja e use os atalhos locais para coletar novas ofertas.</p>
+            </div>
+            <div class="automation-grid" id="automationGrid"></div>
+            <p class="import-status" id="automationStatus"></p>
+          </div>
+
           <div class="import-panel integration-panel">
             <div>
               <h2>Adicionar pelo link do Mercado Livre</h2>
@@ -153,7 +162,7 @@
 
           <div class="import-panel">
             <div>
-              <h2>Status do bot</h2>
+              <h2>Ultimas consultas do bot</h2>
               <p>Veja se as fontes reais foram consultadas e quantas ofertas entraram.</p>
             </div>
             <div class="bot-status-list" id="botStatusList"></div>
@@ -183,6 +192,15 @@
             <p class="import-status" id="importStatus"></p>
           </div>
 
+          <div class="import-panel review-panel">
+            <div>
+              <h2>Fila de revisao</h2>
+              <p>Aprove somente as ofertas boas antes de publicar no site.</p>
+            </div>
+            <div class="review-list" id="reviewOfferList"></div>
+            <p class="import-status" id="reviewStatus"></p>
+          </div>
+
           <div class="admin-list-heading">
             <h2>Ofertas cadastradas</h2>
             <input id="adminSearch" type="search" placeholder="Buscar oferta...">
@@ -194,6 +212,6 @@
 
     <script src="data/offers.js"></script>
     <script>window.MegaTheme.init();</script>
-    <script src="admin.js?v=20260622-amazon-1"></script>
+    <script src="admin.js?v=20260622-review-1"></script>
   </body>
 </html>

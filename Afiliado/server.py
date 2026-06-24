@@ -97,7 +97,51 @@ def read_candidates() -> list[dict]:
 
 
 def write_candidates(candidates: list[dict]) -> None:
-    offer_storage.replace_candidates(candidates)
+    review_offers = read_review_offers()
+    offer_storage.replace_candidates([*candidates, *review_offers])
+
+
+def read_deal_candidates() -> list[dict]:
+    return [
+        candidate for candidate in read_candidates()
+        if candidate.get("candidateType") != "review_offer"
+    ]
+
+
+def read_review_offers() -> list[dict]:
+    return [
+        candidate for candidate in read_candidates()
+        if candidate.get("candidateType") == "review_offer"
+    ]
+
+
+def write_review_offers(review_offers: list[dict]) -> None:
+    deal_candidates = read_deal_candidates()
+    offer_storage.replace_candidates([*deal_candidates, *review_offers])
+
+
+def upsert_review_offers(incoming_offers: list[dict]) -> int:
+    review_by_id = {
+        str(offer.get("id")): offer
+        for offer in read_review_offers()
+        if offer.get("id") is not None
+    }
+    for offer in incoming_offers:
+        if not isinstance(offer, dict):
+            continue
+        offer_id = str(offer.get("id") or offer.get("sourceProductId") or offer.get("affiliateUrl") or offer.get("title") or "")
+        if not offer_id:
+            continue
+        prepared = {
+            **offer,
+            "id": offer_id,
+            "candidateType": "review_offer",
+            "reviewStatus": "pending",
+            "reviewAddedAt": datetime.now(timezone.utc).isoformat(),
+        }
+        review_by_id[offer_id] = prepared
+    write_review_offers(list(review_by_id.values()))
+    return len(incoming_offers)
 
 
 def parse_datetime(value: str | None) -> datetime | None:
@@ -204,11 +248,10 @@ def run_bot_once() -> None:
             existing_offers=existing_offers,
             persist_db=False,
         )
-        merged_offers = bot.merge_offers(existing_offers, offers, purge_missing=True)
-        write_offers(merged_offers)
+        upsert_review_offers(offers)
         write_candidates(bot.get_candidates())
         removed = remove_expired_offers()
-        print(f"[Mega Descontos] Bot publicou {len(offers)} ofertas. Expiradas removidas: {removed}.")
+        print(f"[Mega Descontos] Bot enviou {len(offers)} ofertas para revisao. Expiradas removidas: {removed}.")
     except Exception as error:
         print(f"[Mega Descontos] Erro no bot: {error}")
     finally:
@@ -265,7 +308,14 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
             if not is_authenticated(self):
                 write_json(self, {"error": "Nao autorizado."}, 401)
                 return
-            write_json(self, {"candidates": read_candidates()})
+            write_json(self, {"candidates": read_deal_candidates()})
+            return
+
+        if parsed.path == "/api/review-offers":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            write_json(self, {"reviewOffers": read_review_offers()})
             return
 
         if parsed.path == "/api/mercadolivre/deals":
@@ -298,7 +348,7 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                     },
                 )
             except Exception as error:
-                fallback = read_candidates()
+                fallback = read_deal_candidates()
                 write_json(self, {"error": str(error), "candidates": fallback}, 502 if not fallback else 200)
             return
 
@@ -354,6 +404,76 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 return
             run_bot_once()
             write_json(self, {"ok": True})
+            return
+
+        if parsed.path == "/api/review-offers":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            try:
+                payload = read_json_body(self) or {}
+                offers = payload.get("offers", payload if isinstance(payload, list) else [])
+                if isinstance(offers, dict):
+                    offers = [offers]
+                if not isinstance(offers, list):
+                    raise ValueError("Envie uma lista de ofertas para revisao.")
+                added = upsert_review_offers(offers)
+                write_json(self, {"ok": True, "total": added, "reviewOffers": read_review_offers()})
+            except Exception as error:
+                write_json(self, {"error": str(error)}, 400)
+            return
+
+        if parsed.path == "/api/review-offers/approve":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            try:
+                payload = read_json_body(self) or {}
+                target_id = str(payload.get("id") or "")
+                if not target_id:
+                    raise ValueError("Informe o id da oferta.")
+                review_offers = read_review_offers()
+                candidate = next((offer for offer in review_offers if str(offer.get("id")) == target_id), None)
+                if not candidate:
+                    raise ValueError("Oferta nao encontrada na fila.")
+                offer = {
+                    **candidate,
+                    "candidateType": "",
+                    "reviewStatus": "",
+                    "source": candidate.get("source") or "review_admin",
+                    "foundAt": candidate.get("foundAt") or datetime.now(timezone.utc).isoformat(),
+                }
+                offer.pop("candidateType", None)
+                offer.pop("reviewStatus", None)
+                offer.pop("reviewAddedAt", None)
+                valid_offers, rejected = partition_valid_offers([offer])
+                if rejected or not valid_offers:
+                    details = "; ".join(rejected[0]["errors"]) if rejected else "Oferta invalida."
+                    raise ValueError(details)
+                current = read_offers()
+                merged = [valid_offers[0], *[item for item in current if str(item.get("id")) != target_id]]
+                write_offers(merged)
+                remaining = [offer for offer in review_offers if str(offer.get("id")) != target_id]
+                write_review_offers(remaining)
+                write_json(self, {"ok": True, "offer": valid_offers[0], "reviewOffers": remaining})
+            except Exception as error:
+                write_json(self, {"error": str(error)}, 400)
+            return
+
+        if parsed.path == "/api/review-offers/reject":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            try:
+                payload = read_json_body(self) or {}
+                target_id = str(payload.get("id") or "")
+                if not target_id:
+                    raise ValueError("Informe o id da oferta.")
+                remaining = [offer for offer in read_review_offers() if str(offer.get("id")) != target_id]
+                write_review_offers(remaining)
+                write_json(self, {"ok": True, "reviewOffers": remaining})
+            except Exception as error:
+                write_json(self, {"error": str(error)}, 400)
             return
 
         if parsed.path == "/api/mercadolivre/import-link":

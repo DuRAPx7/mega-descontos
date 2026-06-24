@@ -19,7 +19,7 @@ echo Este bot vai:
 echo 1. Abrir a Amazon em um navegador controlavel
 echo 2. Procurar ofertas em paginas publicas da Amazon
 echo 3. Montar links com sua tag de associado
-echo 4. Cadastrar automaticamente no site online
+echo 4. Enviar as ofertas para revisao no admin
 echo.
 
 set "PYTHON_EXE="
@@ -140,8 +140,8 @@ if %errorlevel% neq 0 (
   pause >nul
 )
 
-echo Buscando ofertas e cadastrando no site online...
-"%PYTHON_EXE%" bot\amazon_discovery_bot.py --publish-site --site-url "%SITE_URL%" --admin-user "%ADMIN_USERNAME%" --admin-password "%ADMIN_PASSWORD%" --associate-tag "%AMAZON_TAG%"
+echo Buscando ofertas e enviando para revisao...
+"%PYTHON_EXE%" bot\amazon_discovery_bot.py --review-site --site-url "%SITE_URL%" --admin-user "%ADMIN_USERNAME%" --admin-password "%ADMIN_PASSWORD%" --associate-tag "%AMAZON_TAG%"
 if %errorlevel% neq 0 (
   echo Falha ao buscar/cadastrar ofertas da Amazon.
   pause
@@ -151,6 +151,7 @@ if %errorlevel% neq 0 (
 echo.
 echo Tudo pronto.
 echo CSV gerado: bot\links_amazon_afiliados_gerados.csv
+echo Revise e aprove as ofertas em %ADMIN_URL%
 echo Site online: %SITE_URL%
 echo.
 pause

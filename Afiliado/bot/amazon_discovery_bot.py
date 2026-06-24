@@ -288,6 +288,15 @@ def publish_to_site(site_url: str, username: str, password: str, offers: list[di
     return statuses
 
 
+def send_to_review(site_url: str, username: str, password: str, offers: list[dict]) -> list[str]:
+    cookie_jar = CookieJar()
+    opener = build_opener(HTTPCookieProcessor(cookie_jar))
+    base_url = site_url.rstrip("/") + "/"
+    api_request(opener, "POST", urljoin(base_url, "api/login"), {"username": username, "password": password})
+    api_request(opener, "POST", urljoin(base_url, "api/review-offers"), {"offers": offers})
+    return ["em_revisao" for _ in offers]
+
+
 def write_csv(output_path: Path, offers: list[dict], statuses: list[str] | None = None) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     statuses = statuses or []
@@ -318,6 +327,7 @@ def main() -> None:
     parser.add_argument("--scrolls", type=int, default=6, help="Quantidade de rolagens por pagina.")
     parser.add_argument("--associate-tag", default=os.environ.get("AMAZON_ASSOCIATE_TAG", ""), help="Tag Amazon Associados.")
     parser.add_argument("--publish-site", action="store_true", help="Publica no Mega Descontos.")
+    parser.add_argument("--review-site", action="store_true", help="Envia para a fila de revisao do Mega Descontos.")
     parser.add_argument("--site-url", default=os.environ.get("SITE_URL", "http://127.0.0.1:8000"), help="URL do Mega Descontos.")
     parser.add_argument("--admin-user", default=os.environ.get("ADMIN_USERNAME", "admin"), help="Usuario admin.")
     parser.add_argument("--admin-password", default=os.environ.get("ADMIN_PASSWORD", "admin123"), help="Senha admin.")
@@ -329,10 +339,14 @@ def main() -> None:
     source_urls = read_source_urls(Path(args.sources))
     offers = discover_offers(source_urls, args.cdp_url, args.associate_tag, max(args.limit, 1), max(args.scrolls, 1))
     statuses = None
-    if args.publish_site:
+    if args.review_site:
+        statuses = send_to_review(args.site_url, args.admin_user, args.admin_password, offers)
+    elif args.publish_site:
         statuses = publish_to_site(args.site_url, args.admin_user, args.admin_password, offers)
     write_csv(Path(args.output), offers, statuses)
     print(f"{len(offers)} ofertas Amazon salvas em {args.output}")
+    if args.review_site:
+        print("Ofertas enviadas para a fila de revisao.")
     if args.publish_site:
         failed = [status for status in statuses or [] if status.startswith("erro_")]
         if failed:

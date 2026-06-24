@@ -361,6 +361,48 @@
   font-weight: 800;
 }
 
+.automation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.automation-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  padding: 12px;
+}
+
+.automation-card strong,
+.automation-card span,
+.automation-card code {
+  display: block;
+}
+
+.automation-card span,
+.automation-card p,
+.automation-card code {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.automation-card code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.automation-card.ok {
+  border-color: #bbf7d0;
+}
+
+.automation-card.error {
+  border-color: #fecaca;
+}
+
 .bot-status-list {
   display: grid;
   gap: 8px;
@@ -390,6 +432,72 @@
 
 .bot-status-item.error {
   border-color: #fecaca;
+}
+
+.review-list {
+  display: grid;
+  gap: 10px;
+}
+
+.review-card {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  padding: 10px;
+}
+
+.review-card img {
+  width: 76px;
+  height: 76px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.review-card h3,
+.review-card p {
+  margin: 0;
+}
+
+.review-card p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.review-actions {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.review-actions a,
+.review-actions button {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-grid;
+  font-weight: 900;
+  place-items: center;
+  padding: 7px 10px;
+  text-decoration: none;
+}
+
+.review-actions button[data-review-approve] {
+  border-color: var(--green);
+  background: var(--green);
+  color: #fff;
+}
+
+.review-actions button[data-review-reject] {
+  border-color: #fecaca;
+  color: #b91c1c;
 }
 
 .admin-list-heading {
@@ -465,7 +573,9 @@
     grid-template-columns: 1fr;
   }
 
-  .candidate-actions {
+  .candidate-actions,
+  .review-actions,
+  .automation-grid {
     grid-template-columns: 1fr;
   }
 
