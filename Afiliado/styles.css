@@ -594,8 +594,44 @@ main {
 
 .offer-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
+}
+
+.offer-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.offer-pagination button {
+  min-width: 40px;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0 12px;
+}
+
+.offer-pagination button.active {
+  border-color: var(--green);
+  background: var(--green);
+  color: #fff;
+}
+
+.offer-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.offer-pagination span {
+  color: var(--muted);
 }
 
 .offer-card {
@@ -1005,8 +1041,7 @@ main {
     justify-content: flex-start;
   }
 
-  .category-grid,
-  .offer-grid {
+  .category-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 

@@ -9,6 +9,8 @@ let selectedStore = "Todas";
 let selectedCategory = "Todas";
 let selectedSort = "discount";
 let showFavoritesOnly = false;
+let currentPage = 1;
+const OFFERS_PER_PAGE = 25;
 
 const categories = window.MEGA_CATEGORIES || [];
 const moneyFormatter = new Intl.NumberFormat("pt-BR", {
@@ -27,6 +29,7 @@ const sortFilter = document.querySelector("#sortFilter");
 const resultsCount = document.querySelector("#resultsCount");
 const clearFilters = document.querySelector("#clearFilters");
 const favoriteFilterLink = document.querySelector("#favoriteFilterLink");
+const offerPagination = document.querySelector("#offerPagination");
 
 function loadFavorites() {
   const savedFavorites = localStorage.getItem(FAVORITES_STORAGE_KEY);
@@ -119,6 +122,7 @@ function renderCategories() {
     button.addEventListener("click", () => {
       selectedCategory = button.dataset.category === "Mais categorias" ? "Todas" : button.dataset.category;
       categoryFilter.value = selectedCategory;
+      currentPage = 1;
       renderOffers();
       document.querySelector("#ofertas").scrollIntoView({ behavior: "smooth" });
     });
@@ -162,10 +166,51 @@ function toggleFavorite(offerId) {
   renderOffers();
 }
 
+function renderPagination(totalOffers) {
+  const totalPages = Math.max(1, Math.ceil(totalOffers / OFFERS_PER_PAGE));
+  currentPage = Math.min(currentPage, totalPages);
+
+  if (totalOffers <= OFFERS_PER_PAGE) {
+    offerPagination.innerHTML = "";
+    offerPagination.hidden = true;
+    return;
+  }
+
+  const startPage = Math.max(1, currentPage - 2);
+  const endPage = Math.min(totalPages, currentPage + 2);
+  const pageButtons = [];
+  for (let page = startPage; page <= endPage; page += 1) {
+    pageButtons.push(
+      `<button type="button" data-page="${page}" class="${page === currentPage ? "active" : ""}" aria-current="${page === currentPage ? "page" : "false"}">${page}</button>`
+    );
+  }
+
+  offerPagination.hidden = false;
+  offerPagination.innerHTML = `
+    <button type="button" data-page="${currentPage - 1}" ${currentPage === 1 ? "disabled" : ""}>Anterior</button>
+    ${startPage > 1 ? `<button type="button" data-page="1">1</button><span>...</span>` : ""}
+    ${pageButtons.join("")}
+    ${endPage < totalPages ? `<span>...</span><button type="button" data-page="${totalPages}">${totalPages}</button>` : ""}
+    <button type="button" data-page="${currentPage + 1}" ${currentPage === totalPages ? "disabled" : ""}>Proxima</button>
+  `;
+
+  offerPagination.querySelectorAll("[data-page]").forEach((button) => {
+    button.addEventListener("click", () => {
+      currentPage = Number(button.dataset.page);
+      renderOffers();
+      document.querySelector("#ofertas").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+}
+
 function renderOffers() {
   const filteredOffers = getFilteredOffers();
+  const totalPages = Math.max(1, Math.ceil(filteredOffers.length / OFFERS_PER_PAGE));
+  currentPage = Math.min(currentPage, totalPages);
+  const pageStart = (currentPage - 1) * OFFERS_PER_PAGE;
+  const visibleOffers = filteredOffers.slice(pageStart, pageStart + OFFERS_PER_PAGE);
 
-  offerGrid.innerHTML = filteredOffers
+  offerGrid.innerHTML = visibleOffers
     .map((offer) => {
       const isFavorite = favorites.includes(String(offer.id));
       const detailUrl = `produto.html?id=${encodeURIComponent(offer.id)}`;
@@ -200,39 +245,45 @@ function renderOffers() {
 
   resultsCount.textContent = `${filteredOffers.length} ${
     filteredOffers.length === 1 ? "oferta" : "ofertas"
-  }${showFavoritesOnly ? " favoritas" : ""}`;
+  }${showFavoritesOnly ? " favoritas" : ""}${filteredOffers.length ? ` / pagina ${currentPage} de ${totalPages}` : ""}`;
   emptyState.textContent = offers.length
     ? "Nenhuma oferta encontrada com esses filtros."
     : "Ainda nao ha ofertas reais publicadas. O bot continua monitorando as lojas.";
   emptyState.hidden = filteredOffers.length > 0;
+  renderPagination(filteredOffers.length);
 }
 
 searchForm.addEventListener("submit", (event) => {
   event.preventDefault();
   searchTerm = searchInput.value;
+  currentPage = 1;
   renderOffers();
   document.querySelector("#ofertas").scrollIntoView({ behavior: "smooth" });
 });
 
 searchInput.addEventListener("input", () => {
   searchTerm = searchInput.value;
+  currentPage = 1;
   renderOffers();
 });
 
 storeFilter.addEventListener("change", () => {
   selectedStore = storeFilter.value;
   showFavoritesOnly = false;
+  currentPage = 1;
   renderOffers();
 });
 
 categoryFilter.addEventListener("change", () => {
   selectedCategory = categoryFilter.value;
   showFavoritesOnly = false;
+  currentPage = 1;
   renderOffers();
 });
 
 sortFilter.addEventListener("change", () => {
   selectedSort = sortFilter.value;
+  currentPage = 1;
   renderOffers();
 });
 
@@ -242,6 +293,7 @@ clearFilters.addEventListener("click", () => {
   selectedCategory = "Todas";
   selectedSort = "discount";
   showFavoritesOnly = false;
+  currentPage = 1;
   searchInput.value = "";
   storeFilter.value = selectedStore;
   categoryFilter.value = selectedCategory;
@@ -255,6 +307,7 @@ favoriteFilterLink.addEventListener("click", () => {
   selectedCategory = "Todas";
   storeFilter.value = selectedStore;
   categoryFilter.value = selectedCategory;
+  currentPage = 1;
   renderOffers();
 });
 
@@ -263,6 +316,7 @@ document.querySelectorAll(".store-card").forEach((button) => {
     showFavoritesOnly = false;
     selectedStore = button.dataset.store;
     storeFilter.value = selectedStore;
+    currentPage = 1;
     renderOffers();
     document.querySelector("#ofertas").scrollIntoView({ behavior: "smooth" });
   });

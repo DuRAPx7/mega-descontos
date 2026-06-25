@@ -11,6 +11,14 @@ class PublicPagesTests(unittest.TestCase):
         self.assertIn('id="productDetail"', page)
         self.assertIn("produto.js", page)
 
+    def test_home_has_offer_pagination(self):
+        page = (ROOT_DIR / "index.html").read_text(encoding="utf-8")
+        script = (ROOT_DIR / "app.js").read_text(encoding="utf-8")
+        styles = (ROOT_DIR / "styles.css").read_text(encoding="utf-8")
+        self.assertIn('id="offerPagination"', page)
+        self.assertIn("const OFFERS_PER_PAGE = 25", script)
+        self.assertIn("repeat(5, minmax(0, 1fr))", styles)
+
     def test_admin_is_split_into_four_pages(self):
         expected = {
             "admin.html": "Status das lojas",
