@@ -35,7 +35,7 @@ function loadFavorites() {
   }
 
   try {
-    return JSON.parse(savedFavorites);
+    return JSON.parse(savedFavorites).map(String);
   } catch {
     return [];
   }
@@ -151,6 +151,7 @@ function getFilteredOffers() {
 }
 
 function toggleFavorite(offerId) {
+  offerId = String(offerId);
   if (favorites.includes(offerId)) {
     favorites = favorites.filter((id) => id !== offerId);
   } else {
@@ -166,22 +167,25 @@ function renderOffers() {
 
   offerGrid.innerHTML = filteredOffers
     .map((offer) => {
-      const isFavorite = favorites.includes(offer.id);
+      const isFavorite = favorites.includes(String(offer.id));
+      const detailUrl = `produto.html?id=${encodeURIComponent(offer.id)}`;
       return `
         <article class="offer-card">
           <span class="discount-pill">-${offer.discount}%</span>
           <button class="favorite-button ${isFavorite ? "active" : ""}" type="button" data-offer-id="${offer.id}" aria-label="Adicionar aos favoritos">
             ${isFavorite ? "Favorito" : "Salvar"}
           </button>
-          <img src="${offer.image}" alt="${offer.title}" loading="lazy" onerror="this.style.visibility='hidden'">
+          <a class="offer-image-link" href="${detailUrl}">
+            <img src="${offer.image}" alt="${offer.title}" loading="lazy" onerror="this.style.visibility='hidden'">
+          </a>
           <div class="offer-body">
-            <h3>${offer.title}</h3>
+            <h3><a class="offer-title-link" href="${detailUrl}">${offer.title}</a></h3>
             <span class="store-name">${offer.store}</span>
             <div>
               <span class="current-price">${moneyFormatter.format(offer.currentPrice)}</span>
               <span class="old-price">${moneyFormatter.format(offer.oldPrice)}</span>
             </div>
-            <a href="${offer.affiliateUrl}" target="_blank" rel="sponsored noopener">Ver oferta</a>
+            <a href="${detailUrl}">Ver detalhes</a>
           </div>
         </article>
       `;
@@ -190,7 +194,7 @@ function renderOffers() {
 
   document.querySelectorAll(".favorite-button").forEach((button) => {
     button.addEventListener("click", () => {
-      toggleFavorite(Number(button.dataset.offerId));
+      toggleFavorite(button.dataset.offerId);
     });
   });
 

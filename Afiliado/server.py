@@ -38,7 +38,7 @@ PORT = int(os.environ.get("PORT", "8000"))
 BOT_RUN_LOCK = threading.Lock()
 ML_DEALS_CACHE: dict[str, object] = {"expiresAt": 0.0, "candidates": []}
 ML_DEALS_LOCK = threading.Lock()
-APP_VERSION = "automatic-shopee-publishing-2026-06-24"
+APP_VERSION = "admin-pages-product-details-2026-06-24"
 
 
 def load_discount_bot():
@@ -491,7 +491,7 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 write_json(self, {"error": str(error), "candidates": fallback}, 502 if not fallback else 200)
             return
 
-        if parsed.path == "/admin.html" and not is_authenticated(self):
+        if parsed.path.startswith("/admin") and parsed.path.endswith(".html") and not is_authenticated(self):
             self.send_response(302)
             self.send_header("Location", "/login.html")
             self.end_headers()

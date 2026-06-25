@@ -18,6 +18,29 @@
   gap: 10px;
 }
 
+.admin-sections {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 22px;
+  overflow-x: auto;
+}
+
+.admin-sections a {
+  min-width: max-content;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  padding: 10px 14px;
+  font-weight: 800;
+}
+
+.admin-sections a.active {
+  border-color: var(--green);
+  background: var(--green);
+  color: #fff;
+}
+
 .admin-nav a,
 .admin-nav button,
 .form-actions button,

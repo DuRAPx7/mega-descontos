@@ -1,113 +1,27 @@
 <!doctype html>
 <html lang="pt-BR">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Admin - Mega Descontos</title>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Status - Mega Descontos</title>
     <script src="theme.js"></script>
-    <link rel="icon" type="image/x-icon" href="favicon.ico?v=20260620-3">
-    <link rel="apple-touch-icon" href="assets/mega-descontos-icon.png">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="admin.css">
+    <link rel="icon" href="favicon.ico"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="admin.css">
   </head>
-  <body class="admin-page compact-admin">
+  <body class="admin-page compact-admin" data-admin-page="status">
     <header class="admin-header">
-      <a class="brand" href="index.html" aria-label="Mega Descontos">
-        <img class="brand-logo" src="assets/mega-descontos-icon.png?v=20260620-4" alt="" aria-hidden="true">
-        <span><strong>MEGA</strong><strong>DESCONTOS</strong></span>
-      </a>
-      <nav class="admin-nav">
-        <button class="theme-toggle" type="button" data-theme-toggle>Tema escuro</button>
-        <a href="index.html">Ver site</a>
-        <button id="runBotNow" type="button">Rodar bot agora</button>
-        <button id="logoutAdmin" type="button">Sair</button>
-      </nav>
+      <a class="brand" href="index.html"><img class="brand-logo" src="assets/mega-descontos-icon.png" alt=""><span><strong>MEGA</strong><strong>DESCONTOS</strong></span></a>
+      <nav class="admin-nav"><button class="theme-toggle" type="button" data-theme-toggle>Tema escuro</button><a href="index.html">Ver site</a><button id="logoutAdmin" type="button">Sair</button></nav>
     </header>
-
     <main class="admin-shell compact-admin-shell">
-      <section class="admin-intro">
-        <div>
-          <p class="admin-kicker">Painel administrativo</p>
-          <h1>Controle de ofertas</h1>
-          <p>Automacao, revisao e qualidade em um unico lugar.</p>
-        </div>
-        <div class="admin-stats">
-          <strong id="adminTotalOffers">0</strong>
-          <span>ofertas publicadas</span>
-        </div>
-      </section>
-
-      <section class="compact-admin-grid">
-        <section class="import-panel status-panel">
-          <div class="panel-heading">
-            <div>
-              <h2>Status das lojas</h2>
-              <p>Resultado da ultima coleta automatizada.</p>
-            </div>
-            <span id="storageStatus" class="status-pill">Verificando</span>
-          </div>
-          <div class="bot-status-list" id="botStatusList"></div>
-          <p class="import-status" id="botStatusSummary"></p>
-          <p class="import-status" id="runBotStatus" role="status" aria-live="polite"></p>
-        </section>
-
-        <section class="import-panel settings-panel">
-          <div>
-            <h2>Configuracoes do bot</h2>
-            <p>Defina o nivel minimo de qualidade para publicar ou revisar.</p>
-          </div>
-          <form id="botSettingsForm" class="settings-grid">
-            <label>Desconto minimo (%)
-              <input id="minimumDiscount" type="number" min="1" max="90" required>
-            </label>
-            <label>Avaliacao minima
-              <input id="minimumRating" type="number" min="0" max="5" step="0.1" required>
-            </label>
-            <label>Vendas minimas
-              <input id="minimumSales" type="number" min="0" step="1" required>
-            </label>
-            <label>Comissao minima
-              <input id="minimumCommissionRate" type="number" min="0" max="1" step="0.001" required>
-            </label>
-            <label>Paginas por execucao
-              <input id="maxPages" type="number" min="1" max="10" required>
-            </label>
-            <label class="setting-toggle">
-              <input id="autoPublishShopee" type="checkbox">
-              <span>Publicar Shopee automaticamente</span>
-            </label>
-            <button class="primary-admin-button" type="submit">Salvar configuracoes</button>
-          </form>
-          <p class="import-status" id="settingsStatus" role="status" aria-live="polite"></p>
-        </section>
-
-        <section class="import-panel review-panel compact-span">
-          <div class="panel-heading">
-            <div>
-              <h2>Fila de revisao</h2>
-              <p>Aprove somente as ofertas que deseja publicar.</p>
-            </div>
-            <strong id="reviewCount">0</strong>
-          </div>
-          <div class="review-list" id="reviewOfferList"></div>
-          <p class="import-status" id="reviewStatus"></p>
-        </section>
-
-        <section class="import-panel published-panel compact-span">
-          <div class="panel-heading">
-            <div>
-              <h2>Ofertas publicadas</h2>
-              <p>Produtos atualmente visiveis no site.</p>
-            </div>
-            <input id="adminSearch" type="search" placeholder="Buscar oferta">
-          </div>
-          <div id="adminOfferList"></div>
-          <p class="import-status" id="publishedStatus"></p>
-        </section>
+      <nav class="admin-sections" aria-label="Paginas administrativas">
+        <a class="active" href="admin.html">Status</a><a href="admin-review.html">Revisao</a><a href="admin-offers.html">Ofertas</a><a href="admin-settings.html">Configuracoes</a>
+      </nav>
+      <section class="admin-intro"><div><p class="admin-kicker">Painel administrativo</p><h1>Status das lojas</h1><p>Acompanhe a coleta automatizada e execute o bot quando precisar.</p></div><div class="admin-stats"><strong id="adminTotalOffers">0</strong><span>ofertas publicadas</span></div></section>
+      <section class="import-panel status-panel">
+        <div class="panel-heading"><div><h2>Ultima coleta</h2><p>Resultado das fontes conectadas.</p></div><span id="storageStatus" class="status-pill">Verificando</span></div>
+        <div class="bot-status-list" id="botStatusList"></div><p class="import-status" id="botStatusSummary"></p>
+        <button id="runBotNow" class="primary-admin-button" type="button">Rodar bot agora</button><p class="import-status" id="runBotStatus"></p>
       </section>
     </main>
-
-    <script>window.MegaTheme.init();</script>
-    <script src="admin-dashboard.js?v=20260624-auto-shopee-1"></script>
+    <script>window.MegaTheme.init();</script><script src="admin-dashboard.js?v=20260624-pages-1"></script>
   </body>
 </html>
