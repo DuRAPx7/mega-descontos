@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: mega-descontos
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: AMAZON_ASSOCIATE_TAG
+        sync: false
+      - key: MERCADOLIVRE_AFFILIATE_ID
+        sync: false
+      - key: MAGALU_PARTNER_ID
+        sync: false
+      - key: SHOPEE_AFFILIATE_ID
+        sync: false
+      - key: SHOPEE_APP_ID
+        sync: false
+      - key: SHOPEE_API_SECRET
+        sync: false
+      - key: SHOPEE_API_MAX_PAGES
+        value: "2"
+      - key: RUN_INTERNAL_SCHEDULER
+        value: "false"
+      - key: CRON_SECRET
+        sync: false
+      - key: ALIEXPRESS_AFFILIATE_ID
+        sync: false
