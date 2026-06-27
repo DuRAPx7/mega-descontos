@@ -44,8 +44,7 @@ def load_config(path: Path) -> dict:
 
 def configure(path: Path) -> None:
     try:
-        site_url = input(f"Site [{DEFAULT_SITE_URL}]: ").strip() or DEFAULT_SITE_URL
-        username = input("Usuario administrador: ").strip()
+        username = input("Usuario administrador [admin]: ").strip() or "admin"
         password = getpass.getpass("Senha administrador: ")
     except (EOFError, KeyboardInterrupt) as error:
         raise SystemExit("Configuracao cancelada.") from error
@@ -55,7 +54,7 @@ def configure(path: Path) -> None:
     path.write_text(
         json.dumps(
             {
-                "siteUrl": site_url.rstrip("/"),
+                "siteUrl": DEFAULT_SITE_URL,
                 "adminUsername": username,
                 "adminPassword": password,
                 "cdpUrl": "http://127.0.0.1:9222",
