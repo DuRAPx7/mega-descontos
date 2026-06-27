@@ -25,6 +25,7 @@ BOT_PATH = APP_DIR / "bot" / "discount_bot.py"
 BOT_STATUS = APP_DIR / "bot" / "status.json"
 BOT_INTERVAL_SECONDS = 600
 BOT_SETTINGS_PROVIDER = "bot_settings"
+AUTOMATION_AGENT_PROVIDER = "mercadolivre_automation_agent"
 DEFAULT_BOT_SETTINGS = {
     "minimumDiscount": 15,
     "minimumRating": 4.0,
@@ -42,7 +43,7 @@ PORT = int(os.environ.get("PORT", "8000"))
 BOT_RUN_LOCK = threading.Lock()
 ML_DEALS_CACHE: dict[str, object] = {"expiresAt": 0.0, "candidates": []}
 ML_DEALS_LOCK = threading.Lock()
-APP_VERSION = "admin-pages-product-details-2026-06-24"
+APP_VERSION = "one-click-affiliate-agent-2026-06-27"
 
 
 def load_discount_bot():
@@ -151,6 +152,37 @@ def read_candidates() -> list[dict]:
 def write_candidates(candidates: list[dict]) -> None:
     review_offers = read_review_offers()
     offer_storage.replace_candidates([*candidates, *review_offers])
+
+
+def complete_deal_candidates(candidate_ids: list[object]) -> int:
+    completed = {str(candidate_id) for candidate_id in candidate_ids if str(candidate_id).strip()}
+    if not completed:
+        return 0
+    candidates = read_deal_candidates()
+    remaining = [candidate for candidate in candidates if str(candidate.get("id")) not in completed]
+    removed = len(candidates) - len(remaining)
+    write_candidates(remaining)
+    return removed
+
+
+def read_automation_agent_status() -> dict:
+    return offer_storage.get_integration(AUTOMATION_AGENT_PROVIDER) or {
+        "state": "offline",
+        "message": "O agente local ainda nao se conectou.",
+        "updatedAt": "",
+    }
+
+
+def write_automation_agent_status(payload: dict) -> dict:
+    status = {
+        "state": str(payload.get("state") or "idle")[:32],
+        "message": str(payload.get("message") or "")[:500],
+        "processed": max(0, int(payload.get("processed") or 0)),
+        "failed": max(0, int(payload.get("failed") or 0)),
+        "updatedAt": datetime.now(timezone.utc).isoformat(),
+    }
+    offer_storage.set_integration(AUTOMATION_AGENT_PROVIDER, status)
+    return status
 
 
 def read_deal_candidates() -> list[dict]:
@@ -497,6 +529,13 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
             write_json(self, {"candidates": read_deal_candidates()})
             return
 
+        if parsed.path == "/api/automation-agent/status":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            write_json(self, {"status": read_automation_agent_status()})
+            return
+
         if parsed.path == "/api/review-offers":
             if not is_authenticated(self):
                 write_json(self, {"error": "Nao autorizado."}, 401)
@@ -590,6 +629,32 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 return
             result = run_bot_once()
             write_json(self, result, 200 if result.get("ok") else 502)
+            return
+
+        if parsed.path == "/api/candidates/complete":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            try:
+                payload = read_json_body(self) or {}
+                candidate_ids = payload.get("ids", [])
+                if not isinstance(candidate_ids, list):
+                    raise ValueError("Envie uma lista de identificadores.")
+                removed = complete_deal_candidates(candidate_ids)
+                write_json(self, {"ok": True, "removed": removed})
+            except (TypeError, ValueError) as error:
+                write_json(self, {"error": str(error)}, 400)
+            return
+
+        if parsed.path == "/api/automation-agent/status":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            try:
+                payload = read_json_body(self) or {}
+                write_json(self, {"ok": True, "status": write_automation_agent_status(payload)})
+            except (TypeError, ValueError) as error:
+                write_json(self, {"error": str(error)}, 400)
             return
 
         if parsed.path == "/api/cron/run":

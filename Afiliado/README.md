@@ -92,6 +92,18 @@ Git para nao publicar suas credenciais.
 `bot/real_sources.json` consulta a pagina publica de melhores ofertas do
 Mercado Livre e as exibe como candidatos no painel Admin.
 
+### Automacao em um clique do Mercado Livre
+
+Execute uma vez `atalhos/instalar_agente_mercado_livre.bat`. O agente inicia
+com o Windows, acompanha os candidatos coletados pelo botao `Rodar bot agora`,
+abre o Link Builder no navegador autenticado, gera os links afiliados e publica
+as ofertas no site.
+
+As credenciais administrativas ficam somente em
+`config/automation_agent.json`, arquivo ignorado pelo Git. Na primeira abertura
+do navegador controlado pelo agente, entre na sua conta do Mercado Livre; o
+perfil sera reutilizado nas proximas execucoes.
+
 `bot/source_feeds.json` aceita feeds/API JSON autorizados de Amazon, Shopee,
 Magalu ou AliExpress. Basta mapear os campos `title`, `url`,
 `affiliateUrl`, `oldPrice`, `currentPrice`, `image` e `expiresAt`.

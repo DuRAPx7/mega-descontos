@@ -38,3 +38,12 @@ Arquivos de saida importantes:
 - bot\links_afiliados_gerados.csv
 - bot\links_shopee_afiliados_gerados.csv
 - bot\links_amazon_afiliados_gerados.csv
+AUTOMACAO EM UM CLIQUE - MERCADO LIVRE
+
+Execute uma vez:
+  instalar_agente_mercado_livre.bat
+
+Depois disso, o agente inicia junto com o Windows. O botao "Rodar bot agora"
+coleta as ofertas, o agente abre o Link Builder, gera os links afiliados e
+publica os produtos no site. Na primeira abertura do navegador, faca login
+no Mercado Livre usando o perfil aberto pelo agente.

@@ -104,11 +104,41 @@ function renderBotStatus(status) {
 }
 
 async function loadStatus() {
-  const [health, status, offers] = await Promise.all([api("/healthz"), api("/api/bot-status"), api("/api/offers")]);
+  const [health, status, offers, agent] = await Promise.all([
+    api("/healthz"),
+    api("/api/bot-status"),
+    api("/api/offers"),
+    api("/api/automation-agent/status")
+  ]);
   byId("storageStatus").textContent = health.persistent ? "Banco persistente" : "Banco temporario";
   byId("storageStatus").className = `status-pill ${health.persistent ? "ok" : "error"}`;
   byId("adminTotalOffers").textContent = (offers.offers || []).length;
   renderBotStatus(status);
+  renderAutomationAgentStatus(agent.status || {});
+}
+
+function renderAutomationAgentStatus(status) {
+  if (!byId("automationAgentState")) return;
+  const updatedAt = status.updatedAt ? new Date(status.updatedAt).getTime() : 0;
+  const online = updatedAt && Date.now() - updatedAt < 70000;
+  const state = online ? status.state || "idle" : "offline";
+  const labels = { idle: "Agente pronto", processing: "Gerando links", completed: "Concluido", error: "Erro no agente", offline: "Agente offline" };
+  byId("automationAgentState").textContent = labels[state] || "Agente local";
+  byId("automationAgentState").className = `status-pill ${state === "error" || state === "offline" ? "error" : "ok"}`;
+  byId("automationAgentMessage").textContent = status.message || "Inicie o agente local do Mercado Livre.";
+}
+
+async function waitForAutomationAgent(startedAt) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    const payload = await api("/api/automation-agent/status");
+    const status = payload.status || {};
+    renderAutomationAgentStatus(status);
+    const updatedAt = status.updatedAt ? new Date(status.updatedAt).getTime() : 0;
+    if (updatedAt >= startedAt && status.state === "completed") return status;
+    if (updatedAt >= startedAt && status.state === "error") throw new Error(status.message || "Falha no agente local.");
+  }
+  throw new Error("A coleta terminou, mas o agente local nao respondeu. Inicie o agente do Mercado Livre.");
 }
 
 function fillSettings() {
@@ -150,6 +180,7 @@ async function saveSettings(event) {
 }
 
 async function runBot() {
+  const startedAt = Date.now();
   byId("runBotNow").disabled = true;
   byId("runBotStatus").textContent = "Executando Shopee, Mercado Livre, qualidade e limpeza...";
   try {
@@ -157,8 +188,15 @@ async function runBot() {
     const removed = (payload.cleanup?.publishedRemoved || 0) + (payload.cleanup?.reviewRemoved || 0);
     const shopee = payload.storeSummary?.shopee || {};
     const mercadoLivre = payload.storeSummary?.mercadolivre || {};
-    byId("runBotStatus").textContent = `Shopee: ${shopee.found || 0} encontradas. Mercado Livre: ${mercadoLivre.found || 0} encontradas, ${mercadoLivre.candidates || 0} novas oportunidades. ${payload.autoPublished || 0} publicadas, ${payload.addedToReview || 0} em revisao e ${removed} antigas removidas.`;
+    byId("runBotStatus").textContent = `Shopee: ${shopee.found || 0} encontradas. Mercado Livre: ${mercadoLivre.found || 0} encontradas, ${mercadoLivre.candidates || 0} aguardando geracao dos links.`;
     await loadStatus();
+    if ((mercadoLivre.candidates || 0) > 0) {
+      const agent = await waitForAutomationAgent(startedAt);
+      byId("runBotStatus").textContent = `${agent.processed || 0} ofertas do Mercado Livre processadas, ${agent.failed || 0} falharam. ${payload.autoPublished || 0} ofertas da Shopee publicadas e ${removed} antigas removidas.`;
+      await loadStatus();
+    } else {
+      byId("runBotStatus").textContent = `${payload.autoPublished || 0} ofertas publicadas e ${removed} antigas removidas. Nenhuma oportunidade nova do Mercado Livre.`;
+    }
   } catch (error) {
     byId("runBotStatus").textContent = error.message;
   } finally {

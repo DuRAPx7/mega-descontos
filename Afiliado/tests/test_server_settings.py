@@ -111,3 +111,18 @@ class ServerSettingsTests(unittest.TestCase):
         self.assertEqual(len(written_offers), 1)
         self.assertEqual(written_offers[0]["title"], "Produto atualizado")
         self.assertEqual(written_review, [])
+
+    def test_completes_only_selected_deal_candidates(self):
+        candidates = [
+            {"id": "one", "candidateType": "", "store": "Mercado Livre"},
+            {"id": "two", "candidateType": "", "store": "Mercado Livre"},
+        ]
+        written = []
+        with (
+            patch.object(server, "read_deal_candidates", return_value=candidates),
+            patch.object(server, "write_candidates", side_effect=lambda values: written.extend(values)),
+        ):
+            removed = server.complete_deal_candidates(["one"])
+
+        self.assertEqual(removed, 1)
+        self.assertEqual([candidate["id"] for candidate in written], ["two"])
