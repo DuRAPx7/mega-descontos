@@ -26,6 +26,7 @@ BOT_STATUS = APP_DIR / "bot" / "status.json"
 BOT_INTERVAL_SECONDS = 600
 BOT_SETTINGS_PROVIDER = "bot_settings"
 AUTOMATION_AGENT_PROVIDER = "mercadolivre_automation_agent"
+AUTOMATION_JOB_PROVIDER = "mercadolivre_automation_job"
 DEFAULT_BOT_SETTINGS = {
     "minimumDiscount": 15,
     "minimumRating": 4.0,
@@ -43,7 +44,7 @@ PORT = int(os.environ.get("PORT", "8000"))
 BOT_RUN_LOCK = threading.Lock()
 ML_DEALS_CACHE: dict[str, object] = {"expiresAt": 0.0, "candidates": []}
 ML_DEALS_LOCK = threading.Lock()
-APP_VERSION = "one-click-affiliate-agent-2026-06-27"
+APP_VERSION = "manual-affiliate-jobs-2026-06-27"
 
 
 def load_discount_bot():
@@ -183,6 +184,56 @@ def write_automation_agent_status(payload: dict) -> dict:
     }
     offer_storage.set_integration(AUTOMATION_AGENT_PROVIDER, status)
     return status
+
+
+def queue_automation_job() -> dict:
+    candidates = [
+        candidate
+        for candidate in read_deal_candidates()
+        if candidate.get("store") == "Mercado Livre" and candidate.get("productUrl")
+    ]
+    job = {
+        "id": secrets.token_hex(8),
+        "state": "pending" if candidates else "empty",
+        "candidateIds": [str(candidate["id"]) for candidate in candidates],
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+    }
+    offer_storage.set_integration(AUTOMATION_JOB_PROVIDER, job)
+    return job
+
+
+def claim_automation_job() -> tuple[dict, list[dict]]:
+    job = offer_storage.get_integration(AUTOMATION_JOB_PROVIDER) or {}
+    if job.get("state") != "pending":
+        return job, []
+    candidate_ids = {str(candidate_id) for candidate_id in job.get("candidateIds", [])}
+    candidates = [
+        candidate
+        for candidate in read_deal_candidates()
+        if str(candidate.get("id")) in candidate_ids
+    ]
+    job = {
+        **job,
+        "state": "processing",
+        "claimedAt": datetime.now(timezone.utc).isoformat(),
+    }
+    offer_storage.set_integration(AUTOMATION_JOB_PROVIDER, job)
+    return job, candidates
+
+
+def finish_automation_job(job_id: str, candidate_ids: list[object], state: str = "completed") -> dict:
+    job = offer_storage.get_integration(AUTOMATION_JOB_PROVIDER) or {}
+    if not job or str(job.get("id")) != str(job_id):
+        raise ValueError("O lote de automacao nao existe mais.")
+    removed = complete_deal_candidates(candidate_ids)
+    job = {
+        **job,
+        "state": state if state in {"completed", "failed"} else "completed",
+        "removedCandidates": removed,
+        "finishedAt": datetime.now(timezone.utc).isoformat(),
+    }
+    offer_storage.set_integration(AUTOMATION_JOB_PROVIDER, job)
+    return job
 
 
 def read_deal_candidates() -> list[dict]:
@@ -536,6 +587,14 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
             write_json(self, {"status": read_automation_agent_status()})
             return
 
+        if parsed.path == "/api/automation-agent/work":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            job, candidates = claim_automation_job()
+            write_json(self, {"job": job, "candidates": candidates})
+            return
+
         if parsed.path == "/api/review-offers":
             if not is_authenticated(self):
                 write_json(self, {"error": "Nao autorizado."}, 401)
@@ -628,6 +687,13 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 write_json(self, {"error": "Nao autorizado."}, 401)
                 return
             result = run_bot_once()
+            if result.get("ok"):
+                job = queue_automation_job()
+                result["automationJob"] = {
+                    "id": job["id"],
+                    "state": job["state"],
+                    "total": len(job["candidateIds"]),
+                }
             write_json(self, result, 200 if result.get("ok") else 502)
             return
 
@@ -653,6 +719,25 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
             try:
                 payload = read_json_body(self) or {}
                 write_json(self, {"ok": True, "status": write_automation_agent_status(payload)})
+            except (TypeError, ValueError) as error:
+                write_json(self, {"error": str(error)}, 400)
+            return
+
+        if parsed.path == "/api/automation-agent/job/complete":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            try:
+                payload = read_json_body(self) or {}
+                candidate_ids = payload.get("ids", [])
+                if not isinstance(candidate_ids, list):
+                    raise ValueError("Envie uma lista de identificadores.")
+                job = finish_automation_job(
+                    str(payload.get("jobId") or ""),
+                    candidate_ids,
+                    str(payload.get("state") or "completed"),
+                )
+                write_json(self, {"ok": True, "job": job})
             except (TypeError, ValueError) as error:
                 write_json(self, {"error": str(error)}, 400)
             return

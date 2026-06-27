@@ -147,14 +147,15 @@ def update_status(opener, config: dict, state: str, message: str, processed: int
 def process_candidates(config: dict) -> tuple[int, int]:
     opener = authenticated_opener(config)
     base_url = config["siteUrl"].rstrip("/") + "/"
-    payload = api_request(opener, "GET", urljoin(base_url, "api/candidates"))
+    payload = api_request(opener, "GET", urljoin(base_url, "api/automation-agent/work"))
+    job = payload.get("job") or {}
     candidates = [
         candidate
         for candidate in payload.get("candidates", [])
         if candidate.get("store") == "Mercado Livre" and candidate.get("productUrl")
     ]
     if not candidates:
-        update_status(opener, config, "idle", "Agente conectado e aguardando novas ofertas.")
+        update_status(opener, config, "idle", "Agente conectado e aguardando seu proximo clique.")
         return 0, 0
 
     ensure_browser(str(config.get("cdpUrl") or "http://127.0.0.1:9222"))
@@ -193,13 +194,17 @@ def process_candidates(config: dict) -> tuple[int, int]:
             failed,
         )
 
-    if processed_ids:
-        api_request(
-            opener,
-            "POST",
-            urljoin(base_url, "api/candidates/complete"),
-            {"ids": processed_ids},
-        )
+    all_candidate_ids = [candidate["id"] for candidate in candidates]
+    api_request(
+        opener,
+        "POST",
+        urljoin(base_url, "api/automation-agent/job/complete"),
+        {
+            "jobId": job.get("id"),
+            "ids": all_candidate_ids,
+            "state": "completed",
+        },
+    )
     update_status(
         opener,
         config,

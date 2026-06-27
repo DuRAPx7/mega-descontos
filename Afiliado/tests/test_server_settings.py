@@ -126,3 +126,18 @@ class ServerSettingsTests(unittest.TestCase):
 
         self.assertEqual(removed, 1)
         self.assertEqual([candidate["id"] for candidate in written], ["two"])
+
+    def test_claims_manual_automation_job_only_once(self):
+        job = {"id": "job-1", "state": "pending", "candidateIds": ["one"]}
+        candidates = [{"id": "one", "store": "Mercado Livre", "productUrl": "https://produto"}]
+        saved = []
+        with (
+            patch.object(server.offer_storage, "get_integration", return_value=job),
+            patch.object(server.offer_storage, "set_integration", side_effect=lambda _provider, payload: saved.append(payload)),
+            patch.object(server, "read_deal_candidates", return_value=candidates),
+        ):
+            claimed, work = server.claim_automation_job()
+
+        self.assertEqual(claimed["state"], "processing")
+        self.assertEqual(work, candidates)
+        self.assertEqual(saved[-1]["state"], "processing")

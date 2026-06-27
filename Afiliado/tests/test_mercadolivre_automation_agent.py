@@ -16,8 +16,9 @@ class MercadoLivreAutomationAgentTests(unittest.TestCase):
 
         def fake_api_request(_opener, method, url, payload=None):
             calls.append((method, url, payload))
-            if url.endswith("/api/candidates"):
+            if url.endswith("/api/automation-agent/work"):
                 return {
+                    "job": {"id": "job-1", "state": "processing"},
                     "candidates": [
                         {
                             "id": "candidate-1",
@@ -38,7 +39,8 @@ class MercadoLivreAutomationAgentTests(unittest.TestCase):
             processed, failed = agent.process_candidates(config)
 
         self.assertEqual((processed, failed), (1, 0))
-        completed = next(payload for method, url, payload in calls if url.endswith("/api/candidates/complete"))
+        completed = next(payload for method, url, payload in calls if url.endswith("/api/automation-agent/job/complete"))
+        self.assertEqual(completed["jobId"], "job-1")
         self.assertEqual(completed["ids"], ["candidate-1"])
 
 
