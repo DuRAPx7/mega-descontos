@@ -31,6 +31,7 @@ DEFAULT_BOT_SETTINGS = {
     "minimumSales": 10,
     "minimumCommissionRate": 0.0,
     "maxPages": 2,
+    "mercadoLivreMaxPages": 5,
     "autoPublishShopee": True,
     "autoPublishMercadoLivre": True,
 }
@@ -108,6 +109,7 @@ def normalize_bot_settings(payload: dict | None = None) -> dict:
         "minimumSales": max(0, min(int(source["minimumSales"]), 1_000_000)),
         "minimumCommissionRate": max(0.0, min(float(source["minimumCommissionRate"]), 1.0)),
         "maxPages": max(1, min(int(source["maxPages"]), 50)),
+        "mercadoLivreMaxPages": max(1, min(int(source["mercadoLivreMaxPages"]), 20)),
         "autoPublishShopee": coerce_bool(source["autoPublishShopee"]),
         "autoPublishMercadoLivre": coerce_bool(source["autoPublishMercadoLivre"]),
     }
@@ -126,6 +128,7 @@ def write_bot_settings(payload: dict) -> dict:
 
 def apply_bot_settings(settings: dict) -> None:
     os.environ["SHOPEE_API_MAX_PAGES"] = str(settings["maxPages"])
+    os.environ["MERCADOLIVRE_MAX_PAGES"] = str(settings["mercadoLivreMaxPages"])
     os.environ["BOT_MIN_RATING"] = str(settings["minimumRating"])
     os.environ["BOT_MIN_SALES"] = str(settings["minimumSales"])
     os.environ["BOT_MIN_COMMISSION_RATE"] = str(settings["minimumCommissionRate"])
@@ -380,6 +383,19 @@ def run_bot_once() -> dict:
             source for source in status.get("sources", [])
             if str(source.get("type") or "").startswith("mercadolivre_")
         ]
+        candidates = bot.get_candidates()
+        store_summary = {
+            "shopee": {
+                "found": int(shopee_status.get("count") or 0) if shopee_status else 0,
+                "candidates": sum(1 for offer in candidates if offer.get("store") == "Shopee"),
+                "ok": bool(shopee_status and shopee_status.get("ok")),
+            },
+            "mercadolivre": {
+                "found": sum(int(source.get("count") or 0) for source in mercadolivre_statuses if source.get("ok")),
+                "candidates": sum(1 for offer in candidates if offer.get("store") == "Mercado Livre"),
+                "ok": any(source.get("ok") for source in mercadolivre_statuses),
+            },
+        }
         active_ids_by_source = {}
         for offer in offers:
             source = str(offer.get("source") or "")
@@ -395,8 +411,13 @@ def run_bot_once() -> dict:
             f"[Mega Descontos] Publicadas automaticamente: {auto_published}. "
             f"Enviadas para revisao: {added_to_review}. Limpeza: {cleanup}."
         )
+        enabled_results = []
+        if settings["autoPublishShopee"]:
+            enabled_results.append(store_summary["shopee"]["ok"])
+        if settings["autoPublishMercadoLivre"]:
+            enabled_results.append(store_summary["mercadolivre"]["ok"])
         return {
-            "ok": not shopee_status or bool(shopee_status.get("ok")),
+            "ok": any(enabled_results) if enabled_results else True,
             "generatedOffers": len(offers),
             "autoPublished": auto_published,
             "addedToReview": added_to_review,
@@ -404,6 +425,7 @@ def run_bot_once() -> dict:
             "reviewOffers": len(read_review_offers()),
             "shopee": shopee_status,
             "mercadolivre": mercadolivre_statuses,
+            "storeSummary": store_summary,
             "automaticSources": sorted(automatic_sources),
             "status": status,
             "settings": settings,

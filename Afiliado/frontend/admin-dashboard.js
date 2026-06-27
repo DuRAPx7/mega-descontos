@@ -134,6 +134,7 @@ async function saveSettings(event) {
     minimumSales: Number(byId("minimumSales").value),
     minimumCommissionRate: Number(byId("minimumCommissionRate").value),
     maxPages: Number(byId("maxPages").value),
+    mercadoLivreMaxPages: Number(byId("mercadoLivreMaxPages").value),
     autoPublishShopee: byId("autoPublishShopee").checked,
     autoPublishMercadoLivre: byId("autoPublishMercadoLivre").checked
   };
@@ -154,8 +155,9 @@ async function runBot() {
   try {
     const payload = await api("/api/run-bot", { method: "POST" });
     const removed = (payload.cleanup?.publishedRemoved || 0) + (payload.cleanup?.reviewRemoved || 0);
-    const activeSources = (payload.automaticSources || []).map((source) => source.replace("_open_api", "").replace("mercadolivre_", "Mercado Livre ").replace("shopee", "Shopee")).join(", ");
-    byId("runBotStatus").textContent = `${payload.autoPublished || 0} ofertas publicadas automaticamente, ${payload.addedToReview || 0} enviadas para revisao e ${removed} antigas removidas.${activeSources ? ` Fontes automaticas: ${activeSources}.` : ""}`;
+    const shopee = payload.storeSummary?.shopee || {};
+    const mercadoLivre = payload.storeSummary?.mercadolivre || {};
+    byId("runBotStatus").textContent = `Shopee: ${shopee.found || 0} encontradas. Mercado Livre: ${mercadoLivre.found || 0} encontradas, ${mercadoLivre.candidates || 0} novas oportunidades. ${payload.autoPublished || 0} publicadas, ${payload.addedToReview || 0} em revisao e ${removed} antigas removidas.`;
     await loadStatus();
   } catch (error) {
     byId("runBotStatus").textContent = error.message;

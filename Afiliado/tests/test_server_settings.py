@@ -13,6 +13,7 @@ class ServerSettingsTests(unittest.TestCase):
                 "minimumSales": 30,
                 "minimumCommissionRate": 0.08,
                 "maxPages": 3,
+                "mercadoLivreMaxPages": 8,
                 "autoPublishShopee": True,
                 "autoPublishMercadoLivre": True,
             }
@@ -23,6 +24,7 @@ class ServerSettingsTests(unittest.TestCase):
         self.assertEqual(settings["minimumSales"], 30)
         self.assertEqual(settings["minimumCommissionRate"], 0.08)
         self.assertEqual(settings["maxPages"], 3)
+        self.assertEqual(settings["mercadoLivreMaxPages"], 8)
         self.assertTrue(settings["autoPublishShopee"])
         self.assertTrue(settings["autoPublishMercadoLivre"])
 
@@ -34,6 +36,7 @@ class ServerSettingsTests(unittest.TestCase):
                 "minimumSales": -1,
                 "minimumCommissionRate": 5,
                 "maxPages": 50,
+                "mercadoLivreMaxPages": 100,
                 "autoPublishShopee": "false",
                 "autoPublishMercadoLivre": "false",
             }
@@ -44,6 +47,7 @@ class ServerSettingsTests(unittest.TestCase):
         self.assertEqual(settings["minimumSales"], 0)
         self.assertEqual(settings["minimumCommissionRate"], 1)
         self.assertEqual(settings["maxPages"], 50)
+        self.assertEqual(settings["mercadoLivreMaxPages"], 20)
         self.assertFalse(settings["autoPublishShopee"])
         self.assertFalse(settings["autoPublishMercadoLivre"])
 

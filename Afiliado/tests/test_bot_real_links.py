@@ -1,6 +1,8 @@
 import unittest
+from unittest.mock import patch
 
 from bot.discount_bot import (
+    fetch_mercadolivre_deals,
     normalize_product,
     parse_feed_payload,
     parse_mercadolivre_affiliate_page,
@@ -82,6 +84,17 @@ class BotRealLinksTests(unittest.TestCase):
         self.assertEqual(deals[0]["id"], "MLB123")
         self.assertEqual(deals[0]["oldPrice"], 299.9)
         self.assertEqual(deals[0]["currentPrice"], 179.9)
+
+    @patch("bot.discount_bot.fetch_mercadolivre_deals_page")
+    def test_collects_multiple_mercadolivre_pages_without_duplicates(self, fetch_page) -> None:
+        first = product()
+        second = {**product(), "id": "produto-456", "url": "https://www.mercadolivre.com.br/produto/p/MLB456"}
+        fetch_page.side_effect = [[first], [first, second], []]
+
+        deals = fetch_mercadolivre_deals(limit=10, max_pages=3)
+
+        self.assertEqual([item["id"] for item in deals], ["produto-123", "produto-456"])
+        self.assertEqual(fetch_page.call_count, 3)
 
     def test_accepts_affiliate_url_generated_by_platform(self) -> None:
         item = product()

@@ -581,16 +581,20 @@ def fetch_shopee_affiliate_product(affiliate_url: str, category: str = "Ofertas"
     return parse_shopee_affiliate_page(page, source)
 
 
-def parse_mercadolivre_deals_page(page: str, limit: int = 24) -> list[dict]:
+def parse_mercadolivre_deals_page(page: str, limit: int = 48) -> list[dict]:
     parser = MercadoLivreDealsParser()
     parser.feed(page)
     parser.close()
-    return parser.items[:max(1, min(limit, 48))]
+    return parser.items[:max(1, min(limit, 100))]
 
 
-def fetch_mercadolivre_deals(limit: int = 24) -> list[dict]:
+def fetch_mercadolivre_deals_page(page_number: int) -> list[dict]:
+    page_number = max(0, page_number)
+    url = "https://www.mercadolivre.com.br/ofertas"
+    if page_number:
+        url += "?" + urlencode({"page": page_number})
     request = Request(
-        "https://www.mercadolivre.com.br/ofertas",
+        url,
         headers={
             "Accept": "text/html,application/xhtml+xml",
             "Accept-Language": "pt-BR,pt;q=0.9",
@@ -599,7 +603,37 @@ def fetch_mercadolivre_deals(limit: int = 24) -> list[dict]:
     )
     with urlopen(request, timeout=30) as response:
         page = response.read().decode("utf-8", errors="replace")
-    return parse_mercadolivre_deals_page(page, limit)
+    return parse_mercadolivre_deals_page(page, 100)
+
+
+def fetch_mercadolivre_deals(limit: int = 240, max_pages: int = 5) -> list[dict]:
+    max_pages = max(1, min(int(max_pages), 20))
+    limit = max(1, min(int(limit), max_pages * 100))
+    products = []
+    seen = set()
+    errors = []
+
+    for page_number in range(max_pages):
+        try:
+            page_products = fetch_mercadolivre_deals_page(page_number)
+        except Exception as error:
+            errors.append(f"pagina {page_number + 1}: {error}")
+            continue
+
+        if not page_products:
+            break
+        for product in page_products:
+            identity = str(product.get("id") or product.get("url") or "").strip().lower()
+            if not identity or identity in seen:
+                continue
+            seen.add(identity)
+            products.append(product)
+            if len(products) >= limit:
+                return products
+
+    if not products and errors:
+        raise RuntimeError("Falha ao consultar ofertas do Mercado Livre: " + "; ".join(errors))
+    return products
 
 
 def load_monitored_products(path: Path) -> list[dict]:
@@ -889,7 +923,20 @@ def load_real_source_products(path: Path) -> list[dict]:
             if source_type == "mercadolivre_search":
                 products.extend(fetch_mercadolivre_search(source))
             elif source_type == "mercadolivre_deals":
-                deals = fetch_mercadolivre_deals(int(source.get("limit") or 24))
+                if source.get("enabled") is False:
+                    record_source_status("Melhores ofertas", "mercadolivre_deals", True, 0, "Fonte desativada.")
+                    continue
+                max_pages = max(
+                    1,
+                    min(
+                        int(credential("MERCADOLIVRE_MAX_PAGES", str(source.get("maxPages") or 5))),
+                        20,
+                    ),
+                )
+                deals = fetch_mercadolivre_deals(
+                    int(source.get("limit") or max_pages * 48),
+                    max_pages=max_pages,
+                )
                 for deal in deals:
                     deal["category"] = infer_category_from_text(deal.get("title"), source.get("category", "Ofertas"))
                     deal["sourceType"] = "mercadolivre_deals"
