@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-import server
+from backend import server
 
 
 class ServerSettingsTests(unittest.TestCase):
@@ -14,6 +14,7 @@ class ServerSettingsTests(unittest.TestCase):
                 "minimumCommissionRate": 0.08,
                 "maxPages": 3,
                 "autoPublishShopee": True,
+                "autoPublishMercadoLivre": True,
             }
         )
 
@@ -23,6 +24,7 @@ class ServerSettingsTests(unittest.TestCase):
         self.assertEqual(settings["minimumCommissionRate"], 0.08)
         self.assertEqual(settings["maxPages"], 3)
         self.assertTrue(settings["autoPublishShopee"])
+        self.assertTrue(settings["autoPublishMercadoLivre"])
 
     def test_clamps_bot_settings(self):
         settings = server.normalize_bot_settings(
@@ -33,6 +35,7 @@ class ServerSettingsTests(unittest.TestCase):
                 "minimumCommissionRate": 5,
                 "maxPages": 50,
                 "autoPublishShopee": "false",
+                "autoPublishMercadoLivre": "false",
             }
         )
 
@@ -40,8 +43,9 @@ class ServerSettingsTests(unittest.TestCase):
         self.assertEqual(settings["minimumRating"], 5)
         self.assertEqual(settings["minimumSales"], 0)
         self.assertEqual(settings["minimumCommissionRate"], 1)
-        self.assertEqual(settings["maxPages"], 10)
+        self.assertEqual(settings["maxPages"], 50)
         self.assertFalse(settings["autoPublishShopee"])
+        self.assertFalse(settings["autoPublishMercadoLivre"])
 
     def test_cleanup_removes_stale_api_offer(self):
         active = {

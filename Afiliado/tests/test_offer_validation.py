@@ -1,6 +1,6 @@
 import unittest
 
-from offer_validation import partition_valid_offers, validate_offer
+from backend.offer_validation import partition_valid_offers, validate_offer
 
 
 def valid_offer() -> dict:

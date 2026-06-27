@@ -21,7 +21,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from offer_validation import validate_offer
+from backend.offer_validation import validate_offer
 from bot.shopee_api_client import ShopeeApiError, fetch_product_offers as fetch_shopee_api_products
 
 DEFAULT_INPUT = ROOT_DIR / "bot" / "produtos_monitorados.json"
@@ -35,6 +35,73 @@ DEFAULT_STATUS = ROOT_DIR / "bot" / "status.json"
 AFFILIATE_CONFIG = ROOT_DIR / "config" / "affiliate.json"
 SOURCE_STATUS: list[dict] = []
 LAST_CANDIDATES: list[dict] = []
+CATEGORY_RULES = [
+    ("Celulares", ["celular", "smartphone", "iphone", "samsung galaxy", "xiaomi", "redmi", "motorola"]),
+    (
+        "Eletronicos",
+        [
+            "fone",
+            "bluetooth",
+            "caixa de som",
+            "smartwatch",
+            "relogio inteligente",
+            "tv",
+            "televisao",
+            "projetor",
+            "camera",
+        ],
+    ),
+    ("Informatica", ["notebook", "computador", "pc", "monitor", "teclado", "mouse", "ssd", "impressora"]),
+    (
+        "Casa e Cozinha",
+        [
+            "cozinha",
+            "air fryer",
+            "fritadeira",
+            "cafeteira",
+            "panela",
+            "organizador",
+            "copo termico",
+            "garrafa termica",
+            "utensilio",
+            "processador de alimentos",
+        ],
+    ),
+    ("Beleza", ["maquiagem", "perfume", "shampoo", "creme", "beleza", "hidratante", "batom", "clareador"]),
+    (
+        "Moda",
+        [
+            "camiseta",
+            "camisa",
+            "blusa",
+            "calca",
+            "tenis",
+            "moletom",
+            "bolsa",
+            "chinelo",
+            "sandalia",
+            "jaqueta",
+            "short",
+            "bermuda",
+            "vestido",
+            "meia",
+            "legging",
+        ],
+    ),
+    ("Esportes", ["bike", "bicicleta", "halter", "academia", "fitness", "esporte", "suplemento"]),
+    ("Livros", ["livro", "box", "ebook"]),
+    ("Brinquedos", ["brinquedo", "lego", "boneca", "carrinho", "jogo infantil"]),
+    ("Automotivo", ["pneu", "carro", "moto", "automotivo", "capacete", "oleo motor"]),
+    ("Ferramentas", ["furadeira", "parafusadeira", "ferramenta", "chave catraca", "soquete", "esmerilhadeira"]),
+]
+
+
+def infer_category_from_text(value: object, fallback: str = "Ofertas") -> str:
+    text = comparable_text(value)
+    for category, terms in CATEGORY_RULES:
+        if any(term in text for term in terms):
+            return category
+    return fallback or "Ofertas"
 
 
 class ProductMetadataParser(HTMLParser):
@@ -776,7 +843,7 @@ def fetch_mercadolivre_search(source: dict) -> list[dict]:
                 "id": f"mlb-{item.get('id')}",
                 "title": item.get("title"),
                 "store": source.get("store", "Mercado Livre"),
-                "category": source.get("category", "Ofertas"),
+                "category": infer_category_from_text(item.get("title"), source.get("category", "Ofertas")),
                 "url": item.get("permalink"),
                 "oldPrice": old_price,
                 "currentPrice": current_price,
@@ -795,7 +862,7 @@ def load_real_source_products(path: Path) -> list[dict]:
 
     if credential("SHOPEE_APP_ID") and credential("SHOPEE_API_SECRET"):
         try:
-            max_pages = max(1, min(int(credential("SHOPEE_API_MAX_PAGES", "2")), 10))
+            max_pages = max(1, min(int(credential("SHOPEE_API_MAX_PAGES", "2")), 50))
             shopee_products = fetch_shopee_api_products(
                 max_pages=max_pages,
                 limit=50,
@@ -824,7 +891,7 @@ def load_real_source_products(path: Path) -> list[dict]:
             elif source_type == "mercadolivre_deals":
                 deals = fetch_mercadolivre_deals(int(source.get("limit") or 24))
                 for deal in deals:
-                    deal["category"] = source.get("category", "Ofertas")
+                    deal["category"] = infer_category_from_text(deal.get("title"), source.get("category", "Ofertas"))
                     deal["sourceType"] = "mercadolivre_deals"
                 products.extend(deals)
                 record_source_status("Melhores ofertas", "mercadolivre_deals", True, len(deals))

@@ -204,3 +204,20 @@ da Shopee que passarem pelos limites de desconto, avaliacao, vendas e comissao
 sao publicados automaticamente. O mesmo `shopId + itemId` atualiza a oferta
 existente, sem criar duplicidade. Desative essa opcao caso queira que as ofertas
 da Shopee voltem para a fila de revisao.
+
+## Estrutura do projeto
+
+```text
+Afiliado/
+  backend/      API HTTP, login/admin, armazenamento e validacao
+  frontend/     paginas HTML, CSS, JavaScript, favicon e imagens publicas
+  bot/          robos e integracoes de Mercado Livre, Shopee e Amazon
+  data/         base local, seeds e arquivos gerados
+  config/       configuracoes locais que nao devem conter segredos publicados
+  tests/        testes automatizados
+  server.py     entrada simples para Render e execucao local
+```
+
+O Render continua usando `python server.py`. O arquivo raiz apenas chama o
+backend, e o backend entrega os arquivos da pasta `frontend/` mantendo as URLs
+antigas, como `/index.html`, `/admin.html` e `/produto.html`.

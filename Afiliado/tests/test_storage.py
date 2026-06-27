@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from storage import OfferStorage
+from backend.storage import OfferStorage
 
 
 class OfferStorageTests(unittest.TestCase):

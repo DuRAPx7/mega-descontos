@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-ROOT_DIR = Path(__file__).resolve().parent
-DEFAULT_SQLITE_PATH = ROOT_DIR / "data" / "mega_descontos.db"
+APP_DIR = Path(__file__).resolve().parents[1]
+DEFAULT_SQLITE_PATH = APP_DIR / "data" / "mega_descontos.db"
 MIGRATION_KEY = "offers_json_migration_v1"
 
 
