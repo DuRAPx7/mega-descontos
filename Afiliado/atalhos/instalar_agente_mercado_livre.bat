@@ -7,10 +7,21 @@ set "STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 set "LAUNCHER=%STARTUP%\MegaDescontosMercadoLivre.cmd"
 set "AGENT=%CD%\atalhos\iniciar_agente_mercado_livre.bat"
 
-> "%LAUNCHER%" echo @echo off
->> "%LAUNCHER%" echo start "Mega Descontos" /min "%AGENT%"
+echo.
+echo Configurando o acesso do agente...
+call "%AGENT%" --configure
+if errorlevel 1 (
+  echo.
+  echo A configuracao nao foi concluida.
+  pause
+  exit /b 1
+)
 
+> "%LAUNCHER%" echo @echo off
+>> "%LAUNCHER%" echo start "Mega Descontos" /min cmd.exe /c call "%AGENT%"
+
+echo.
 echo Agente configurado para iniciar com o Windows.
-echo Na primeira execucao, informe seu usuario e senha administrativa.
-start "Mega Descontos" /min "%AGENT%"
+echo Iniciando o agente agora...
+start "Mega Descontos" /min cmd.exe /c call "%AGENT%"
 pause

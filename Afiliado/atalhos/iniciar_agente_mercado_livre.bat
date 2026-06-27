@@ -4,9 +4,9 @@ title Mega Descontos - Agente Mercado Livre
 cd /d "%~dp0.."
 
 set "PYTHON_EXE="
-where py >nul 2>nul && set "PYTHON_EXE=py"
+if exist "C:\Users\Borges\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" set "PYTHON_EXE=C:\Users\Borges\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+if "%PYTHON_EXE%"=="" where py >nul 2>nul && set "PYTHON_EXE=py"
 if "%PYTHON_EXE%"=="" where python >nul 2>nul && set "PYTHON_EXE=python"
-if "%PYTHON_EXE%"=="" if exist "C:\Users\Borges\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" set "PYTHON_EXE=C:\Users\Borges\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
 
 if "%PYTHON_EXE%"=="" (
   echo Python nao encontrado.
@@ -14,12 +14,26 @@ if "%PYTHON_EXE%"=="" (
   exit /b 1
 )
 
+if /I "%~1"=="--configure" (
+  "%PYTHON_EXE%" bot\mercadolivre_automation_agent.py --configure
+  if errorlevel 1 exit /b 1
+  exit /b 0
+)
+
 "%PYTHON_EXE%" -c "import playwright" >nul 2>nul
-if errorlevel 1 "%PYTHON_EXE%" -m pip install -r requirements.txt
+if errorlevel 1 (
+  echo Instalando somente a dependencia Playwright...
+  "%PYTHON_EXE%" -m pip install "playwright>=1.44,<2"
+  if errorlevel 1 (
+    echo Nao foi possivel instalar o Playwright.
+    pause
+    exit /b 1
+  )
+)
 
 if not exist "config\automation_agent.json" (
   echo Primeira configuracao do agente.
-  "%PYTHON_EXE%" bot\mercadolivre_automation_agent.py --configure
+  call "%~f0" --configure
   if errorlevel 1 (
     pause
     exit /b 1

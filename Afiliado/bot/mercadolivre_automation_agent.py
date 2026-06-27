@@ -43,9 +43,12 @@ def load_config(path: Path) -> dict:
 
 
 def configure(path: Path) -> None:
-    site_url = input(f"Site [{DEFAULT_SITE_URL}]: ").strip() or DEFAULT_SITE_URL
-    username = input("Usuario administrador: ").strip()
-    password = getpass.getpass("Senha administrador: ")
+    try:
+        site_url = input(f"Site [{DEFAULT_SITE_URL}]: ").strip() or DEFAULT_SITE_URL
+        username = input("Usuario administrador: ").strip()
+        password = getpass.getpass("Senha administrador: ")
+    except (EOFError, KeyboardInterrupt) as error:
+        raise SystemExit("Configuracao cancelada.") from error
     if not username or not password:
         raise ValueError("Usuario e senha sao obrigatorios.")
     path.parent.mkdir(parents=True, exist_ok=True)
