@@ -104,6 +104,12 @@ As credenciais administrativas ficam somente em
 do navegador controlado pelo agente, entre na sua conta do Mercado Livre; o
 perfil sera reutilizado nas proximas execucoes.
 
+Para incluir a Amazon no mesmo botao, execute uma vez
+`atalhos/instalar_agente_amazon.bat`. O agente usa a tag
+`megadesco0304-20`, abre a Amazon em um perfil separado e publica as ofertas
+encontradas. Na primeira abertura, conclua o login ou captcha da Amazon caso
+seja solicitado.
+
 `bot/source_feeds.json` aceita feeds/API JSON autorizados de Amazon, Shopee,
 Magalu ou AliExpress. Basta mapear os campos `title`, `url`,
 `affiliateUrl`, `oldPrice`, `currentPrice`, `image` e `expiresAt`.

@@ -27,6 +27,8 @@ BOT_INTERVAL_SECONDS = 600
 BOT_SETTINGS_PROVIDER = "bot_settings"
 AUTOMATION_AGENT_PROVIDER = "mercadolivre_automation_agent"
 AUTOMATION_JOB_PROVIDER = "mercadolivre_automation_job"
+AMAZON_AGENT_PROVIDER = "amazon_automation_agent"
+AMAZON_JOB_PROVIDER = "amazon_automation_job"
 SNAPSHOT_CLEANUP_SOURCES = {"shopee_open_api"}
 DEFAULT_BOT_SETTINGS = {
     "minimumDiscount": 15,
@@ -45,7 +47,7 @@ PORT = int(os.environ.get("PORT", "8000"))
 BOT_RUN_LOCK = threading.Lock()
 ML_DEALS_CACHE: dict[str, object] = {"expiresAt": 0.0, "candidates": []}
 ML_DEALS_LOCK = threading.Lock()
-APP_VERSION = "preserve-local-agent-offers-2026-06-28"
+APP_VERSION = "amazon-local-agent-2026-06-28"
 
 
 def load_discount_bot():
@@ -234,6 +236,62 @@ def finish_automation_job(job_id: str, candidate_ids: list[object], state: str =
         "finishedAt": datetime.now(timezone.utc).isoformat(),
     }
     offer_storage.set_integration(AUTOMATION_JOB_PROVIDER, job)
+    return job
+
+
+def read_amazon_agent_status() -> dict:
+    return offer_storage.get_integration(AMAZON_AGENT_PROVIDER) or {
+        "state": "offline",
+        "message": "O agente Amazon ainda nao se conectou.",
+        "updatedAt": "",
+    }
+
+
+def write_amazon_agent_status(payload: dict) -> dict:
+    status = {
+        "state": str(payload.get("state") or "idle")[:32],
+        "message": str(payload.get("message") or "")[:500],
+        "processed": max(0, int(payload.get("processed") or 0)),
+        "failed": max(0, int(payload.get("failed") or 0)),
+        "updatedAt": datetime.now(timezone.utc).isoformat(),
+    }
+    offer_storage.set_integration(AMAZON_AGENT_PROVIDER, status)
+    return status
+
+
+def queue_amazon_job() -> dict:
+    job = {
+        "id": secrets.token_hex(8),
+        "state": "pending",
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+    }
+    offer_storage.set_integration(AMAZON_JOB_PROVIDER, job)
+    return job
+
+
+def claim_amazon_job() -> dict:
+    job = offer_storage.get_integration(AMAZON_JOB_PROVIDER) or {}
+    if job.get("state") != "pending":
+        return job
+    job = {
+        **job,
+        "state": "processing",
+        "claimedAt": datetime.now(timezone.utc).isoformat(),
+    }
+    offer_storage.set_integration(AMAZON_JOB_PROVIDER, job)
+    return job
+
+
+def finish_amazon_job(job_id: str, state: str = "completed") -> dict:
+    job = offer_storage.get_integration(AMAZON_JOB_PROVIDER) or {}
+    if not job or str(job.get("id")) != str(job_id):
+        raise ValueError("O lote Amazon nao existe mais.")
+    job = {
+        **job,
+        "state": state if state in {"completed", "failed"} else "completed",
+        "finishedAt": datetime.now(timezone.utc).isoformat(),
+    }
+    offer_storage.set_integration(AMAZON_JOB_PROVIDER, job)
     return job
 
 
@@ -593,6 +651,20 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
             write_json(self, {"job": job, "candidates": candidates})
             return
 
+        if parsed.path == "/api/amazon-automation-agent/status":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            write_json(self, {"status": read_amazon_agent_status()})
+            return
+
+        if parsed.path == "/api/amazon-automation-agent/work":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            write_json(self, {"job": claim_amazon_job()})
+            return
+
         if parsed.path == "/api/review-offers":
             if not is_authenticated(self):
                 write_json(self, {"error": "Nao autorizado."}, 401)
@@ -687,10 +759,15 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
             result = run_bot_once()
             if result.get("ok"):
                 job = queue_automation_job()
+                amazon_job = queue_amazon_job()
                 result["automationJob"] = {
                     "id": job["id"],
                     "state": job["state"],
                     "total": len(job["candidateIds"]),
+                }
+                result["amazonAutomationJob"] = {
+                    "id": amazon_job["id"],
+                    "state": amazon_job["state"],
                 }
             write_json(self, result, 200 if result.get("ok") else 502)
             return
@@ -733,6 +810,32 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 job = finish_automation_job(
                     str(payload.get("jobId") or ""),
                     candidate_ids,
+                    str(payload.get("state") or "completed"),
+                )
+                write_json(self, {"ok": True, "job": job})
+            except (TypeError, ValueError) as error:
+                write_json(self, {"error": str(error)}, 400)
+            return
+
+        if parsed.path == "/api/amazon-automation-agent/status":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            try:
+                payload = read_json_body(self) or {}
+                write_json(self, {"ok": True, "status": write_amazon_agent_status(payload)})
+            except (TypeError, ValueError) as error:
+                write_json(self, {"error": str(error)}, 400)
+            return
+
+        if parsed.path == "/api/amazon-automation-agent/job/complete":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            try:
+                payload = read_json_body(self) or {}
+                job = finish_amazon_job(
+                    str(payload.get("jobId") or ""),
                     str(payload.get("state") or "completed"),
                 )
                 write_json(self, {"ok": True, "job": job})

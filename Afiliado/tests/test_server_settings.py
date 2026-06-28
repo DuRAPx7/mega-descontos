@@ -165,3 +165,15 @@ class ServerSettingsTests(unittest.TestCase):
         self.assertEqual(claimed["state"], "processing")
         self.assertEqual(work, candidates)
         self.assertEqual(saved[-1]["state"], "processing")
+
+    def test_claims_amazon_job_only_when_pending(self):
+        job = {"id": "amazon-job-1", "state": "pending"}
+        saved = []
+        with (
+            patch.object(server.offer_storage, "get_integration", return_value=job),
+            patch.object(server.offer_storage, "set_integration", side_effect=lambda _provider, payload: saved.append(payload)),
+        ):
+            claimed = server.claim_amazon_job()
+
+        self.assertEqual(claimed["state"], "processing")
+        self.assertEqual(saved[-1]["state"], "processing")

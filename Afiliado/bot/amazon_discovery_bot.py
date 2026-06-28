@@ -10,11 +10,18 @@ from urllib.error import HTTPError
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 
-from mercadolivre_linkbuilder_bot import (
-    find_existing_similar_offer,
-    infer_category_from_text,
-    merge_duplicate_offer,
-)
+try:
+    from bot.mercadolivre_linkbuilder_bot import (
+        find_existing_similar_offer,
+        infer_category_from_text,
+        merge_duplicate_offer,
+    )
+except ImportError:
+    from mercadolivre_linkbuilder_bot import (
+        find_existing_similar_offer,
+        infer_category_from_text,
+        merge_duplicate_offer,
+    )
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -133,16 +140,16 @@ def collect_offers_from_page(page, source_url: str, associate_tag: str, limit: i
             card = card || anchor;
             const image = card.querySelector("img") || anchor.querySelector("img");
             const titleCandidates = [
-              anchor.getAttribute("aria-label"),
-              image?.getAttribute("alt"),
               card.querySelector("h2")?.innerText,
               card.querySelector("[data-cy='title-recipe']")?.innerText,
+              image?.getAttribute("alt"),
+              anchor.getAttribute("aria-label"),
               anchor.innerText,
             ].filter(Boolean);
             const text = card.innerText || anchor.innerText || "";
             return {
               url: anchor.href,
-              title: titleCandidates[0] || "",
+              title: titleCandidates.find((value) => value.trim().length >= 12) || titleCandidates[0] || "",
               image: image?.currentSrc || image?.src || "",
               text,
               prices: [...new Set(text.match(/R\$\s*[\d.]+,\d{2}/g) || [])],
@@ -155,6 +162,7 @@ def collect_offers_from_page(page, source_url: str, associate_tag: str, limit: i
 
     offers = []
     seen = set()
+    seen_titles = set()
     for raw in raw_items:
         product_url = normalize_product_url(str(raw.get("url") or ""), source_url)
         asin = extract_asin(product_url)
@@ -177,10 +185,14 @@ def collect_offers_from_page(page, source_url: str, associate_tag: str, limit: i
 
         title = re.sub(r"\s+", " ", str(raw.get("title") or "")).strip(" -")
         image = str(raw.get("image") or "").strip()
-        if not title or not image.startswith("https://"):
+        if len(title) < 12 or not image.startswith("https://"):
+            continue
+        title_key = title.casefold()
+        if title_key in seen_titles:
             continue
 
         seen.add(product_url)
+        seen_titles.add(title_key)
         offers.append(
             {
                 "productUrl": product_url,

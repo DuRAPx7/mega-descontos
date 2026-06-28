@@ -47,3 +47,12 @@ Depois disso, o agente inicia junto com o Windows. O botao "Rodar bot agora"
 coleta as ofertas, o agente abre o Link Builder, gera os links afiliados e
 publica os produtos no site. Na primeira abertura do navegador, faca login
 no Mercado Livre usando o perfil aberto pelo agente.
+
+AUTOMACAO EM UM CLIQUE - AMAZON
+
+Depois de configurar o agente principal, execute uma vez:
+  instalar_agente_amazon.bat
+
+O agente Amazon usa um navegador e perfil separados, busca ofertas atuais,
+monta os links com a tag megadesco0304-20 e publica junto com as outras lojas
+quando voce clicar em "Rodar bot agora".
