@@ -27,6 +27,7 @@ BOT_INTERVAL_SECONDS = 600
 BOT_SETTINGS_PROVIDER = "bot_settings"
 AUTOMATION_AGENT_PROVIDER = "mercadolivre_automation_agent"
 AUTOMATION_JOB_PROVIDER = "mercadolivre_automation_job"
+SNAPSHOT_CLEANUP_SOURCES = {"shopee_open_api"}
 DEFAULT_BOT_SETTINGS = {
     "minimumDiscount": 15,
     "minimumRating": 4.0,
@@ -44,7 +45,7 @@ PORT = int(os.environ.get("PORT", "8000"))
 BOT_RUN_LOCK = threading.Lock()
 ML_DEALS_CACHE: dict[str, object] = {"expiresAt": 0.0, "candidates": []}
 ML_DEALS_LOCK = threading.Lock()
-APP_VERSION = "manual-affiliate-jobs-2026-06-27"
+APP_VERSION = "preserve-local-agent-offers-2026-06-28"
 
 
 def load_discount_bot():
@@ -348,7 +349,7 @@ def cleanup_catalog(active_ids_by_source: dict[str, set[str]] | None = None) -> 
         if expires_at and expires_at <= now:
             return False
         source = str(offer.get("source") or "")
-        active_ids = active_ids_by_source.get(source)
+        active_ids = active_ids_by_source.get(source) if source in SNAPSHOT_CLEANUP_SOURCES else None
         if active_ids is not None and str(offer.get("id")) not in active_ids:
             return False
         return not partition_valid_offers([offer])[1]
@@ -482,13 +483,10 @@ def run_bot_once() -> dict:
         active_ids_by_source = {}
         for offer in offers:
             source = str(offer.get("source") or "")
-            if source:
+            if source in SNAPSHOT_CLEANUP_SOURCES:
                 active_ids_by_source.setdefault(source, set()).add(str(offer.get("id")))
         if shopee_status and shopee_status.get("ok"):
             active_ids_by_source.setdefault("shopee_open_api", set())
-        for source_status in mercadolivre_statuses:
-            if source_status.get("ok"):
-                active_ids_by_source.setdefault(str(source_status.get("type")), set())
         cleanup = cleanup_catalog(active_ids_by_source)
         print(
             f"[Mega Descontos] Publicadas automaticamente: {auto_published}. "

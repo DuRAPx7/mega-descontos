@@ -35,6 +35,7 @@ class MercadoLivreAutomationAgentTests(unittest.TestCase):
             patch.object(agent, "ensure_browser"),
             patch.object(agent, "generate_affiliate_links", return_value=["https://meli.la/abc"]),
             patch.object(agent, "publish_to_site", return_value=["publicado"]),
+            patch.object(agent, "write_csv"),
         ):
             processed, failed = agent.process_candidates(config)
 

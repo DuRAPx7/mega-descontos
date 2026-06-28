@@ -77,6 +77,30 @@ class ServerSettingsTests(unittest.TestCase):
         self.assertEqual(result["publishedRemoved"], 1)
         self.assertEqual([offer["id"] for offer in written], ["active"])
 
+    def test_cleanup_preserves_local_agent_offer_when_source_is_not_a_snapshot(self):
+        offer = {
+            "id": "meli-1",
+            "title": "Produto Mercado Livre",
+            "store": "Mercado Livre",
+            "category": "Ofertas",
+            "oldPrice": 100,
+            "currentPrice": 80,
+            "image": "https://http2.mlstatic.com/produto.jpg",
+            "affiliateUrl": "https://meli.la/affiliate",
+            "source": "mercadolivre_affiliate_link",
+        }
+        written = []
+        with (
+            patch.object(server, "read_offers", return_value=[offer]),
+            patch.object(server, "write_offers", side_effect=lambda offers: written.extend(offers)),
+            patch.object(server, "read_review_offers", return_value=[]),
+            patch.object(server, "write_review_offers"),
+        ):
+            result = server.cleanup_catalog({"mercadolivre_affiliate_link": set()})
+
+        self.assertEqual(result["publishedRemoved"], 0)
+        self.assertEqual(written, [])
+
     def test_automatic_publish_updates_by_id_and_clears_review(self):
         current = {
             "id": "shopee-10-20",

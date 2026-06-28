@@ -15,6 +15,7 @@ try:
         api_request,
         generate_affiliate_links,
         publish_to_site,
+        write_csv,
     )
 except ImportError:
     from mercadolivre_linkbuilder_bot import (
@@ -22,12 +23,14 @@ except ImportError:
         api_request,
         generate_affiliate_links,
         publish_to_site,
+        write_csv,
     )
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT_DIR / "config" / "automation_agent.json"
 PROFILE_DIR = ROOT_DIR / "browser-ml-profile"
+OUTPUT_PATH = ROOT_DIR / "bot" / "links_afiliados_gerados.csv"
 DEFAULT_SITE_URL = "https://mega-descontos.onrender.com"
 
 
@@ -163,6 +166,9 @@ def process_candidates(config: dict) -> tuple[int, int]:
 
     processed_ids = []
     failed = 0
+    saved_source_links = []
+    saved_affiliate_links = []
+    saved_statuses = []
     batch_size = max(1, min(int(config.get("batchSize") or 20), 50))
     for start in range(0, len(candidates), batch_size):
         batch = candidates[start:start + batch_size]
@@ -179,6 +185,10 @@ def process_candidates(config: dict) -> tuple[int, int]:
             source_links,
             generated,
         )
+        saved_source_links.extend(source_links)
+        saved_affiliate_links.extend(generated)
+        saved_statuses.extend(statuses)
+        write_csv(OUTPUT_PATH, saved_source_links, saved_affiliate_links, saved_statuses)
         for index, candidate in enumerate(batch):
             status = statuses[index] if index < len(statuses) else "nao_gerado"
             if status in {"publicado", "atualizado_existente"}:
