@@ -658,6 +658,7 @@ main {
   font-size: 0.8rem;
   font-weight: 900;
   padding: 5px 8px;
+  z-index: 2;
 }
 
 .favorite-button {
@@ -677,6 +678,7 @@ main {
   padding: 0 9px;
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
   cursor: pointer;
+  z-index: 2;
 }
 
 .favorite-button.active {
@@ -687,13 +689,18 @@ main {
 .offer-card img {
   display: block;
   width: 100%;
-  aspect-ratio: 1.1 / 1;
-  object-fit: cover;
-  background: var(--input);
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
 }
 
 .offer-image-link {
-  display: block;
+  display: grid;
+  aspect-ratio: 1.1 / 1;
+  place-items: center;
+  overflow: hidden;
+  background: #fff;
+  padding: 10px;
 }
 
 .offer-title-link {
