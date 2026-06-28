@@ -136,6 +136,34 @@ class ServerSettingsTests(unittest.TestCase):
         self.assertEqual(written_offers[0]["title"], "Produto atualizado")
         self.assertEqual(written_review, [])
 
+    def test_atomic_upserts_preserve_offers_from_other_agents(self):
+        catalog = []
+
+        def read_catalog():
+            return [dict(offer) for offer in catalog]
+
+        def write_catalog(offers):
+            catalog[:] = [dict(offer) for offer in offers]
+
+        amazon = {
+            "id": "amazon-1",
+            "title": "Produto Amazon",
+            "store": "Amazon",
+        }
+        mercado_livre = {
+            "id": "meli-1",
+            "title": "Produto Mercado Livre",
+            "store": "Mercado Livre",
+        }
+        with (
+            patch.object(server, "read_offers", side_effect=read_catalog),
+            patch.object(server, "write_offers", side_effect=write_catalog),
+        ):
+            server.upsert_offer(amazon)
+            server.upsert_offer(mercado_livre)
+
+        self.assertEqual({offer["id"] for offer in catalog}, {"amazon-1", "meli-1"})
+
     def test_completes_only_selected_deal_candidates(self):
         candidates = [
             {"id": "one", "candidateType": "", "store": "Mercado Livre"},

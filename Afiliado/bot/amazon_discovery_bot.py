@@ -269,13 +269,8 @@ def publish_to_site(site_url: str, username: str, password: str, offers: list[di
     opener = build_opener(HTTPCookieProcessor(cookie_jar))
     base_url = site_url.rstrip("/") + "/"
     api_request(opener, "POST", urljoin(base_url, "api/login"), {"username": username, "password": password})
-    offers_payload = api_request(opener, "GET", urljoin(base_url, "api/offers"))
-    current_offers = offers_payload.get("offers", offers_payload if isinstance(offers_payload, list) else [])
-    if not isinstance(current_offers, list):
-        current_offers = []
 
     statuses = []
-    offers_by_id = {str(offer.get("id")): offer for offer in current_offers if isinstance(offer, dict)}
     for index, product in enumerate(offers):
         try:
             print(f"Publicando Amazon {index + 1}/{len(offers)}...")
@@ -283,20 +278,10 @@ def publish_to_site(site_url: str, username: str, password: str, offers: list[di
             offer = payload.get("offer")
             if not isinstance(offer, dict):
                 raise ValueError("Resposta sem oferta.")
-            duplicate = find_existing_similar_offer(offer, list(offers_by_id.values()))
-            if duplicate:
-                merged_offer = merge_duplicate_offer(duplicate, offer)
-                offers_by_id[str(merged_offer.get("id"))] = merged_offer
-                if str(duplicate.get("id")) != str(merged_offer.get("id")):
-                    offers_by_id.pop(str(duplicate.get("id")), None)
-                statuses.append("atualizado_existente")
-            else:
-                offers_by_id[str(offer.get("id"))] = offer
-                statuses.append("publicado")
+            statuses.append("publicado" if payload.get("created") else "atualizado_existente")
         except Exception as error:
             statuses.append(f"erro_publicar: {error}")
 
-    api_request(opener, "PUT", urljoin(base_url, "api/offers"), list(offers_by_id.values()))
     return statuses
 
 

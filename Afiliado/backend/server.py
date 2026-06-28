@@ -45,9 +45,10 @@ SESSIONS: set[str] = set()
 HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8000"))
 BOT_RUN_LOCK = threading.Lock()
+CATALOG_WRITE_LOCK = threading.RLock()
 ML_DEALS_CACHE: dict[str, object] = {"expiresAt": 0.0, "candidates": []}
 ML_DEALS_LOCK = threading.Lock()
-APP_VERSION = "amazon-local-agent-2026-06-28"
+APP_VERSION = "atomic-offer-upserts-2026-06-28"
 
 
 def load_discount_bot():
@@ -146,6 +147,38 @@ def read_offers() -> list[dict]:
 
 def write_offers(offers: list[dict]) -> None:
     offer_storage.replace_all(offers)
+
+
+def upsert_offer(offer: dict) -> tuple[dict, bool]:
+    with CATALOG_WRITE_LOCK:
+        offers = read_offers()
+        title_key = " ".join(str(offer.get("title") or "").casefold().split())
+        store_key = str(offer.get("store") or "").casefold().strip()
+        existing = next(
+            (
+                current
+                for current in offers
+                if str(current.get("id")) == str(offer.get("id"))
+                or (
+                    store_key
+                    and title_key
+                    and str(current.get("store") or "").casefold().strip() == store_key
+                    and " ".join(str(current.get("title") or "").casefold().split()) == title_key
+                )
+            ),
+            None,
+        )
+        created = existing is None
+        persisted = {**(existing or {}), **offer}
+        if existing:
+            persisted["id"] = existing["id"]
+        remaining = [
+            current
+            for current in offers
+            if not existing or str(current.get("id")) != str(existing.get("id"))
+        ]
+        write_offers([persisted, *remaining])
+        return persisted, created
 
 
 def read_candidates() -> list[dict]:
@@ -939,7 +972,8 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 if not offer:
                     raise ValueError("O link nao informou uma oferta ativa com preco anterior e atual.")
                 offer["source"] = "mercadolivre_affiliate_link"
-                write_json(self, {"offer": offer})
+                offer, created = upsert_offer(offer)
+                write_json(self, {"offer": offer, "created": created})
             except Exception as error:
                 write_json(self, {"error": str(error)}, 400)
             return
@@ -975,7 +1009,8 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 if not offer:
                     raise ValueError("O link nao informou uma oferta ativa com preco anterior e atual.")
                 offer["source"] = "amazon_affiliate_link"
-                write_json(self, {"offer": offer})
+                offer, created = upsert_offer(offer)
+                write_json(self, {"offer": offer, "created": created})
             except Exception as error:
                 write_json(self, {"error": str(error)}, 400)
             return
@@ -1011,7 +1046,8 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 if not offer:
                     raise ValueError("O link nao informou uma oferta ativa com preco anterior e atual.")
                 offer["source"] = "shopee_affiliate_link"
-                write_json(self, {"offer": offer})
+                offer, created = upsert_offer(offer)
+                write_json(self, {"offer": offer, "created": created})
             except Exception as error:
                 write_json(self, {"error": str(error)}, 400)
             return
