@@ -8,7 +8,7 @@ import unicodedata
 from difflib import SequenceMatcher
 from http.cookiejar import CookieJar
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlunparse
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 
 
@@ -64,6 +64,18 @@ def read_source_links(path: Path) -> list[str]:
 
 def normalize_url(value: str) -> str:
     return value.strip().rstrip("/")
+
+
+def canonicalize_product_url(value: str) -> str:
+    value = value.strip()
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return value
+    host = (parsed.hostname or "").lower()
+    if host == "mercadolivre.com.br" or host.endswith(".mercadolivre.com.br"):
+        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
+    return value
 
 
 def is_generated_affiliate_url(value: str, source_links: set[str]) -> bool:
@@ -343,6 +355,7 @@ def connect_to_linkbuilder(cdp_url: str):
 
 
 def generate_affiliate_links(source_links: list[str], cdp_url: str, wait_seconds: int) -> list[str]:
+    source_links = [canonicalize_product_url(link) for link in source_links]
     playwright, browser, page = connect_to_linkbuilder(cdp_url)
     try:
         page.bring_to_front()
@@ -350,7 +363,14 @@ def generate_affiliate_links(source_links: list[str], cdp_url: str, wait_seconds
         page.locator("textarea").first.fill("\n".join(source_links))
 
         button = page.get_by_role("button", name=re.compile("Gerar", re.IGNORECASE))
-        button.click(timeout=15_000)
+        validation_deadline = time.time() + 90
+        while time.time() < validation_deadline and button.is_disabled():
+            time.sleep(0.5)
+        if button.is_disabled():
+            raise RuntimeError(
+                f"O Mercado Livre nao validou o lote de {len(source_links)} links em 90 segundos."
+            )
+        button.click(timeout=30_000)
 
         source_set = {normalize_url(link) for link in source_links}
         deadline = time.time() + wait_seconds

@@ -9,6 +9,7 @@ from bot.discount_bot import (
     parse_mercadolivre_deals_page,
     parse_price,
 )
+from bot.mercadolivre_linkbuilder_bot import canonicalize_product_url
 
 
 def product() -> dict:
@@ -102,6 +103,13 @@ class BotRealLinksTests(unittest.TestCase):
         offer = normalize_product(item, minimum_discount=15)
         self.assertIsNotNone(offer)
         self.assertEqual(offer["affiliateUrl"], item["affiliateUrl"])
+
+    def test_removes_tracking_parameters_from_mercadolivre_product_url(self) -> None:
+        value = "https://www.mercadolivre.com.br/produto/p/MLB123?pdp_filters=deal#position=4"
+        self.assertEqual(
+            canonicalize_product_url(value),
+            "https://www.mercadolivre.com.br/produto/p/MLB123",
+        )
 
     def test_rejects_product_without_supported_affiliate_link(self) -> None:
         self.assertIsNone(normalize_product(product(), minimum_discount=15))
