@@ -32,6 +32,7 @@ DEFAULT_SOURCE_URLS = [
     "https://www.amazon.com.br/gp/goldbox",
     "https://www.amazon.com.br/s?k=ofertas",
 ]
+BRL_PRICE_PATTERN = r"R\$\s*[\d.]+,\d{2}"
 
 
 def read_source_urls(path: Path) -> list[str]:
@@ -62,6 +63,40 @@ def calculate_old_price(current_price: float, discount: int | None, prices: list
     if discount and 0 < discount < 95:
         return round(current_price / (1 - discount / 100), 2)
     return None
+
+
+def extract_amazon_prices(text: str, discount: int | None = None) -> tuple[float | None, float | None]:
+    normalized = re.sub(r"\s+", " ", str(text or "").replace("\xa0", " ")).strip()
+    if not normalized:
+        return None, None
+
+    # A Amazon exibe valores auxiliares como "R$ 0,04 / milimetro" e
+    # parcelas como "10x de R$ 19,90". Eles nao sao o preco do produto.
+    without_unit_prices = re.sub(
+        rf"\(?{BRL_PRICE_PATTERN}\s*/\s*[^)]+?\)",
+        " ",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    without_installments = re.sub(
+        rf"\b\d{{1,2}}\s*x\s*(?:de\s*)?{BRL_PRICE_PATTERN}",
+        " ",
+        without_unit_prices,
+        flags=re.IGNORECASE,
+    )
+    prices = [
+        price
+        for price in (
+            parse_brl_price(label)
+            for label in re.findall(BRL_PRICE_PATTERN, without_installments, flags=re.IGNORECASE)
+        )
+        if price is not None
+    ]
+    if not prices:
+        return None, None
+    current_price = min(prices)
+    old_price = calculate_old_price(current_price, discount, sorted(prices, reverse=True))
+    return current_price, old_price
 
 
 def extract_asin(url: str) -> str:
@@ -169,17 +204,11 @@ def collect_offers_from_page(page, source_url: str, associate_tag: str, limit: i
         if not asin or product_url in seen:
             continue
 
-        prices = [
-            price
-            for price in (parse_brl_price(price_text) for price_text in raw.get("prices", []))
-            if price is not None
-        ]
-        if not prices:
-            continue
-        current_price = min(prices)
         discount_match = re.search(r"\d+", str(raw.get("discounts", [""])[0] if raw.get("discounts") else ""))
         discount = int(discount_match.group()) if discount_match else None
-        old_price = calculate_old_price(current_price, discount, sorted(prices, reverse=True))
+        current_price, old_price = extract_amazon_prices(str(raw.get("text") or ""), discount)
+        if current_price is None:
+            continue
         if not old_price or old_price <= current_price:
             continue
 

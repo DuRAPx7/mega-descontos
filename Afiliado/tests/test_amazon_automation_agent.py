@@ -2,9 +2,26 @@ import unittest
 from unittest.mock import patch
 
 from bot import amazon_automation_agent as agent
+from bot.amazon_discovery_bot import extract_amazon_prices
 
 
 class AmazonAutomationAgentTests(unittest.TestCase):
+    def test_ignores_unit_price_when_reading_amazon_offer(self):
+        current, old = extract_amazon_prices(
+            "-19% R$ 19,90 (R$ 0,04 / milimetro) De: R$ 24,79",
+            19,
+        )
+        self.assertEqual(current, 19.90)
+        self.assertEqual(old, 24.79)
+
+    def test_ignores_installment_when_reading_amazon_offer(self):
+        current, old = extract_amazon_prices(
+            "R$ 1.999,00 10x de R$ 199,90 De: R$ 2.499,00",
+            20,
+        )
+        self.assertEqual(current, 1999.00)
+        self.assertEqual(old, 2499.00)
+
     def test_processes_single_manual_job(self):
         config = {
             "siteUrl": "https://example.test",
