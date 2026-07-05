@@ -212,7 +212,8 @@ async function saveSettings(event) {
 async function runBot() {
   const startedAt = Date.now();
   byId("runBotNow").disabled = true;
-  byId("runBotStatus").textContent = "Executando Shopee, Mercado Livre, Amazon, qualidade e limpeza...";
+  byId("runBotNow").textContent = "Automação em andamento...";
+  byId("runBotStatus").textContent = "Coletando ofertas, preparando links e atualizando o catálogo...";
   try {
     const payload = await api("/api/run-bot", { method: "POST" });
     const removed = (payload.cleanup?.publishedRemoved || 0) + (payload.cleanup?.reviewRemoved || 0);
@@ -239,6 +240,7 @@ async function runBot() {
     byId("runBotStatus").textContent = error.message;
   } finally {
     byId("runBotNow").disabled = false;
+    byId("runBotNow").textContent = "Rodar automação completa";
   }
 }
 
