@@ -56,6 +56,15 @@ function updateCountdown(expiresAt) {
     return;
   }
   const days = Math.floor(difference / 86400000);
+  if (days > 30) {
+    target.innerHTML = `
+      <span class="countdown-long">
+        <b>${new Date(expiration).toLocaleDateString("pt-BR")}</b>
+        <small>Validade informada</small>
+      </span>
+    `;
+    return;
+  }
   const hours = Math.floor((difference % 86400000) / 3600000);
   const minutes = Math.floor((difference % 3600000) / 60000);
   const seconds = Math.floor((difference % 60000) / 1000);

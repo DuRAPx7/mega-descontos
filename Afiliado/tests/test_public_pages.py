@@ -16,6 +16,8 @@ class PublicPagesTests(unittest.TestCase):
         self.assertIn('id="productSave"', page)
         self.assertIn("product-extra-grid", script)
         self.assertIn("offerCountdown", script)
+        self.assertIn("days > 30", script)
+        self.assertIn("Validade informada", script)
         self.assertIn("navigator.share", script)
 
     def test_home_has_offer_pagination(self):

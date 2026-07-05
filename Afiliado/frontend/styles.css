@@ -1510,6 +1510,18 @@ main {
   text-align: center;
 }
 
+#offerCountdown .countdown-long {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 4px;
+  place-items: center;
+  border: 0;
+}
+
+#offerCountdown .countdown-long b {
+  font-size: 1rem;
+}
+
 .product-benefits {
   grid-column: 1 / -1;
   display: grid;
