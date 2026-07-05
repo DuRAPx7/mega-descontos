@@ -9,8 +9,14 @@ FRONTEND_DIR = ROOT_DIR / "frontend"
 class PublicPagesTests(unittest.TestCase):
     def test_product_page_has_detail_script(self):
         page = (FRONTEND_DIR / "produto.html").read_text(encoding="utf-8")
+        script = (FRONTEND_DIR / "produto.js").read_text(encoding="utf-8")
         self.assertIn('id="productDetail"', page)
         self.assertIn("produto.js", page)
+        self.assertIn('id="productSearch"', page)
+        self.assertIn('id="productSave"', page)
+        self.assertIn("product-extra-grid", script)
+        self.assertIn("offerCountdown", script)
+        self.assertIn("navigator.share", script)
 
     def test_home_has_offer_pagination(self):
         page = (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
