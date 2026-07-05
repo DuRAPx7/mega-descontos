@@ -1,9 +1,20 @@
 import argparse
 import json
+import os
 import subprocess
 import time
 from pathlib import Path
 from urllib.parse import urljoin
+
+
+DLL_DIRECTORY_HANDLE = None
+if os.name == "nt" and hasattr(os, "add_dll_directory"):
+    bundled_dlls = (
+        Path.home()
+        / ".cache/codex-runtimes/codex-primary-runtime/dependencies/native/libheif/libheif/bin"
+    )
+    if bundled_dlls.exists():
+        DLL_DIRECTORY_HANDLE = os.add_dll_directory(str(bundled_dlls))
 
 try:
     from bot.amazon_discovery_bot import (

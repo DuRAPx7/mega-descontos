@@ -18,19 +18,9 @@ echo 3. Abrir o site e a fila de revisao
 echo 4. Abrir os arquivos de entrada e resultado
 echo.
 
-where py >nul 2>nul
-if %errorlevel%==0 set "PYTHON_EXE=py"
-
-if "%PYTHON_EXE%"=="" (
-  where python >nul 2>nul
-  if %errorlevel%==0 set "PYTHON_EXE=python"
-)
-
-if "%PYTHON_EXE%"=="" (
-  if exist "%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" (
-    set "PYTHON_EXE=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
-  )
-)
+if exist "%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" set "PYTHON_EXE=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+if not defined PYTHON_EXE py -c "import sys" >nul 2>nul && set "PYTHON_EXE=py"
+if not defined PYTHON_EXE python -c "import sys" >nul 2>nul && set "PYTHON_EXE=python"
 
 if "%PYTHON_EXE%"=="" (
   echo Python nao encontrado. Instale Python ou execute pelo ambiente do Codex.

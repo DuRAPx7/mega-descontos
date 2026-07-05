@@ -25,19 +25,9 @@ set "PORT=8000"
 
 set "PYTHON_EXE="
 
-where py >nul 2>nul
-if %errorlevel%==0 set "PYTHON_EXE=py"
-
-if "%PYTHON_EXE%"=="" (
-  where python >nul 2>nul
-  if %errorlevel%==0 set "PYTHON_EXE=python"
-)
-
-if "%PYTHON_EXE%"=="" (
-  if exist "C:\Users\Borges\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" (
-    set "PYTHON_EXE=C:\Users\Borges\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
-  )
-)
+if exist "%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" set "PYTHON_EXE=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+if not defined PYTHON_EXE py -c "import sys" >nul 2>nul && set "PYTHON_EXE=py"
+if not defined PYTHON_EXE python -c "import sys" >nul 2>nul && set "PYTHON_EXE=python"
 
 if "%PYTHON_EXE%"=="" (
   echo Python nao encontrado. Instale Python ou execute pelo ambiente do Codex.
@@ -46,4 +36,3 @@ if "%PYTHON_EXE%"=="" (
 )
 
 "%PYTHON_EXE%" server.py
-
