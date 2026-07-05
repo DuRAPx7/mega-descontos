@@ -8,27 +8,34 @@
     <script src="theme.js"></script>
     <link rel="icon" href="favicon.ico">
     <link rel="apple-touch-icon" href="assets/mega-descontos-icon.png">
-    <link rel="stylesheet" href="styles.css?v=20260628-imagefit-1">
+    <link rel="stylesheet" href="styles.css?v=20260705-product-detail-1">
   </head>
   <body>
-    <header class="site-header product-header">
+    <header class="site-header product-header product-header-2026">
       <a class="brand" href="index.html" aria-label="Mega Descontos">
         <img class="brand-logo" src="assets/mega-descontos-icon.png" alt="">
         <span><strong>MEGA</strong><strong>DESCONTOS</strong></span>
       </a>
+      <form class="product-search" id="productSearch">
+        <input id="productSearchInput" type="search" placeholder="Buscar produtos, lojas...">
+        <button type="submit" aria-label="Buscar">⌕</button>
+      </form>
       <nav class="product-nav">
-        <a href="index.html">Voltar para ofertas</a>
-        <button class="theme-toggle" type="button" data-theme-toggle>Tema escuro</button>
+        <a href="index.html">← Voltar para ofertas</a>
+        <button class="theme-toggle" type="button" data-theme-toggle>Tema claro</button>
       </nav>
     </header>
     <main class="product-page">
-      <nav class="product-breadcrumb"><a href="index.html">Inicio</a><span>/</span><span id="breadcrumbCategory">Oferta</span></nav>
+      <div class="product-subnav">
+        <nav class="product-breadcrumb"><a href="index.html">Início</a><span>/</span><span id="breadcrumbCategory">Ofertas</span><span>/</span><strong>Detalhes da oferta</strong></nav>
+        <div><button id="productSave" type="button">♡ Salvar</button><button id="productShare" type="button">♧ Compartilhar</button></div>
+      </div>
       <section id="productDetail" class="product-detail" aria-live="polite">
         <div class="product-loading">Carregando oferta...</div>
       </section>
     </main>
     <footer class="footer"><span>Mega Descontos</span><span>Links podem gerar comissao como afiliado.</span></footer>
     <script>window.MegaTheme.init();</script>
-    <script src="produto.js?v=20260705-analytics-1"></script>
+    <script src="produto.js?v=20260705-product-detail-1"></script>
   </body>
 </html>
