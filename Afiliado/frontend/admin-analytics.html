@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Analytics - Mega Descontos</title>
+    <script src="theme.js"></script>
+    <link rel="icon" href="favicon.ico">
+    <link rel="stylesheet" href="styles.css?v=20260705-neon-request-1">
+    <link rel="stylesheet" href="admin.css?v=20260705-analytics-1">
+  </head>
+  <body class="admin-page compact-admin analytics-page" data-admin-page="analytics">
+    <header class="admin-header">
+      <a class="brand" href="index.html"><img class="brand-logo" src="assets/mega-descontos-icon.png" alt=""><span><strong>MEGA</strong><strong>DESCONTOS</strong></span></a>
+      <nav class="admin-sections admin-top-nav">
+        <a href="admin.html"><span>▥</span>Status</a>
+        <a class="active" href="admin-analytics.html"><span>▥</span>Analytics</a>
+        <a href="admin-offers.html"><span>◇</span>Ofertas</a>
+        <a href="admin-settings.html"><span>⚙</span>Configurações</a>
+      </nav>
+      <nav class="admin-nav"><a href="index.html" aria-label="Ver site">↗</a><button class="admin-avatar" id="logoutAdmin" type="button" aria-label="Sair">AD</button></nav>
+    </header>
+
+    <div class="analytics-layout">
+      <aside class="analytics-sidebar">
+        <p>Analytics</p>
+        <a class="active" href="#visao-geral">▥ <span>Visão geral</span></a>
+        <a href="#top-ofertas">◇ <span>Ofertas</span></a>
+        <a href="#cliques">⌁ <span>Cliques</span></a>
+        <a href="#conversoes">↗ <span>Conversões</span></a>
+        <a href="#categorias">▦ <span>Categorias</span></a>
+        <a href="#lojas">▣ <span>Lojas</span></a>
+        <a href="#dispositivos">▱ <span>Dispositivos</span></a>
+        <div class="analytics-tip"><strong>♧ Dica rápida</strong><span>Use o período para comparar o desempenho das ofertas.</span></div>
+      </aside>
+
+      <main class="analytics-main" id="visao-geral">
+        <section class="analytics-heading">
+          <div><h1>Analytics</h1><p>Acompanhe o desempenho das ofertas e descubra insights reais.</p></div>
+          <button id="exportAnalytics" type="button">⇩ &nbsp; Exportar relatório</button>
+        </section>
+
+        <section class="analytics-filters">
+          <label>Período<select id="analyticsPeriod"><option value="7">Últimos 7 dias</option><option value="30" selected>Últimos 30 dias</option><option value="90">Últimos 90 dias</option></select></label>
+          <label>Comparar com<select disabled><option>Período anterior</option></select></label>
+          <label>Eventos<select disabled><option>Todos os eventos</option></select></label>
+        </section>
+
+        <section class="analytics-kpis">
+          <article><span class="kpi-icon green">⌁</span><div><small>Total de cliques</small><strong id="analyticsClicks">0</strong><b id="analyticsClicksChange">0%</b></div></article>
+          <article><span class="kpi-icon blue">◉</span><div><small>Visualizações</small><strong id="analyticsViews">0</strong><b id="analyticsViewsChange">0%</b></div></article>
+          <article><span class="kpi-icon purple">%</span><div><small>CTR (Taxa de clique)</small><strong id="analyticsCtr">0%</strong><b id="analyticsCtrChange">0 p.p.</b></div></article>
+          <article id="conversoes"><span class="kpi-icon orange">🛒</span><div><small>Saídas para lojas</small><strong id="analyticsConversions">0</strong><b id="analyticsConversionsChange">0%</b></div></article>
+        </section>
+
+        <section class="analytics-primary-grid">
+          <article class="analytics-panel timeline-panel" id="cliques">
+            <div class="analytics-panel-title"><div><h2>Cliques ao longo do tempo</h2><p><i></i> Cliques &nbsp; <em></em> Período anterior</p></div></div>
+            <div class="timeline-chart" id="analyticsTimeline"></div>
+          </article>
+          <article class="analytics-panel category-panel" id="categorias">
+            <div class="analytics-panel-title"><h2>Cliques por categoria</h2></div>
+            <div class="donut-layout"><div class="analytics-donut" id="categoryDonut"><span><b id="categoryDonutTotal">0</b>cliques</span></div><div class="analytics-legend" id="categoryLegend"></div></div>
+          </article>
+        </section>
+
+        <section class="analytics-secondary-grid">
+          <article class="analytics-panel" id="top-ofertas"><div class="analytics-panel-title"><h2>Top ofertas por cliques</h2></div><div class="top-offers-list" id="topOffersList"></div></article>
+          <article class="analytics-panel" id="dispositivos"><div class="analytics-panel-title"><h2>Cliques por dispositivo</h2></div><div class="donut-layout"><div class="analytics-donut" id="deviceDonut"><span><b id="deviceDonutTotal">0</b>eventos</span></div><div class="analytics-legend" id="deviceLegend"></div></div></article>
+          <article class="analytics-panel" id="lojas"><div class="analytics-panel-title"><h2>Cliques por loja</h2></div><div class="store-analytics-list" id="storeAnalyticsList"></div></article>
+        </section>
+
+        <p class="analytics-status" id="analyticsStatus">Carregando dados reais...</p>
+      </main>
+    </div>
+    <script>window.MegaTheme.init();</script>
+    <script src="admin-dashboard.js?v=20260705-analytics-1"></script>
+  </body>
+</html>

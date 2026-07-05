@@ -18,6 +18,15 @@ class ServerSettingsTests(unittest.TestCase):
         parsed = datetime.fromisoformat(agent_updated_at({"clientUpdatedAt": "invalido"}))
         self.assertIsNotNone(parsed.tzinfo)
 
+    def test_detects_analytics_device(self):
+        self.assertEqual(server.analytics_device("Mozilla/5.0 (iPhone) Mobile"), "Mobile")
+        self.assertEqual(server.analytics_device("Mozilla/5.0 (iPad)"), "Tablet")
+        self.assertEqual(server.analytics_device("Mozilla/5.0 (Windows NT 10.0)"), "Desktop")
+
+    def test_calculates_analytics_percent_change(self):
+        self.assertEqual(server.analytics_percent_change(120, 100), 20.0)
+        self.assertEqual(server.analytics_percent_change(1, 0), 100.0)
+
     def test_normalizes_bot_settings(self):
         settings = server.normalize_bot_settings(
             {

@@ -5,11 +5,12 @@ import secrets
 import sys
 import threading
 import time
-from datetime import datetime, timezone
+from collections import Counter, defaultdict
+from datetime import datetime, timedelta, timezone
 from http import cookies
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from .offer_validation import partition_valid_offers
 from .storage import offer_storage
@@ -48,6 +49,8 @@ BOT_RUN_LOCK = threading.Lock()
 CATALOG_WRITE_LOCK = threading.RLock()
 ML_DEALS_CACHE: dict[str, object] = {"expiresAt": 0.0, "candidates": []}
 ML_DEALS_LOCK = threading.Lock()
+ANALYTICS_RATE_LIMIT: dict[str, tuple[int, int]] = {}
+ANALYTICS_RATE_LOCK = threading.Lock()
 APP_VERSION = "atomic-offer-upserts-2026-06-28"
 
 
@@ -147,6 +150,149 @@ def read_offers() -> list[dict]:
 
 def write_offers(offers: list[dict]) -> None:
     offer_storage.replace_all(offers)
+
+
+def analytics_device(user_agent: str) -> str:
+    value = user_agent.casefold()
+    if any(term in value for term in ("ipad", "tablet")):
+        return "Tablet"
+    if any(term in value for term in ("mobile", "android", "iphone")):
+        return "Mobile"
+    return "Desktop"
+
+
+def allow_analytics_event(client: str) -> bool:
+    minute = int(time.time() // 60)
+    with ANALYTICS_RATE_LOCK:
+        current_minute, count = ANALYTICS_RATE_LIMIT.get(client, (minute, 0))
+        if current_minute != minute:
+            current_minute, count = minute, 0
+        if count >= 120:
+            return False
+        ANALYTICS_RATE_LIMIT[client] = (current_minute, count + 1)
+        return True
+
+
+def analytics_percent_change(current: int, previous: int) -> float:
+    if previous <= 0:
+        return 100.0 if current > 0 else 0.0
+    return round(((current - previous) / previous) * 100, 1)
+
+
+def build_analytics_report(days: int) -> dict:
+    now = datetime.now(timezone.utc)
+    current_start = now - timedelta(days=days)
+    previous_start = current_start - timedelta(days=days)
+    events = offer_storage.read_analytics_events(previous_start.isoformat())
+    offers_by_id = {str(offer.get("id")): offer for offer in read_offers()}
+
+    def parsed_at(event: dict) -> datetime | None:
+        try:
+            value = datetime.fromisoformat(str(event.get("occurredAt") or "").replace("Z", "+00:00"))
+            return value.astimezone(timezone.utc) if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+
+    current_events = []
+    previous_events = []
+    for event in events:
+        occurred_at = parsed_at(event)
+        if not occurred_at:
+            continue
+        if occurred_at >= current_start:
+            current_events.append(event)
+        elif occurred_at >= previous_start:
+            previous_events.append(event)
+
+    def count_type(source: list[dict], *types: str) -> int:
+        return sum(event.get("type") in types for event in source)
+
+    clicks = count_type(current_events, "offer_click")
+    views = count_type(current_events, "page_view", "product_view")
+    conversions = count_type(current_events, "outbound_click")
+    previous_clicks = count_type(previous_events, "offer_click")
+    previous_views = count_type(previous_events, "page_view", "product_view")
+    previous_conversions = count_type(previous_events, "outbound_click")
+
+    click_events = [event for event in current_events if event.get("type") == "offer_click"]
+    category_counts = Counter(str(event.get("category") or "Outros") for event in click_events)
+    store_counts = Counter(str(event.get("store") or "Outras lojas") for event in click_events)
+    device_counts = Counter(str(event.get("device") or "Desktop") for event in current_events)
+    offer_counts = Counter(str(event.get("offerId") or "") for event in click_events if event.get("offerId"))
+
+    daily_clicks: dict[str, int] = defaultdict(int)
+    previous_daily_clicks: dict[str, int] = defaultdict(int)
+    for event in click_events:
+        occurred_at = parsed_at(event)
+        if occurred_at:
+            daily_clicks[occurred_at.date().isoformat()] += 1
+    for event in previous_events:
+        if event.get("type") != "offer_click":
+            continue
+        occurred_at = parsed_at(event)
+        if occurred_at:
+            shifted = occurred_at + timedelta(days=days)
+            previous_daily_clicks[shifted.date().isoformat()] += 1
+
+    timeline = []
+    for offset in range(days):
+        day = (current_start.date() + timedelta(days=offset + 1)).isoformat()
+        timeline.append(
+            {
+                "date": day,
+                "clicks": daily_clicks[day],
+                "previousClicks": previous_daily_clicks[day],
+            }
+        )
+
+    def ranked(counter: Counter, limit: int = 6) -> list[dict]:
+        total = sum(counter.values())
+        return [
+            {
+                "name": name,
+                "count": count,
+                "percent": round((count / total) * 100, 1) if total else 0,
+            }
+            for name, count in counter.most_common(limit)
+        ]
+
+    top_offers = []
+    for offer_id, count in offer_counts.most_common(5):
+        offer = offers_by_id.get(offer_id, {})
+        sample = next((event for event in click_events if str(event.get("offerId")) == offer_id), {})
+        top_offers.append(
+            {
+                "id": offer_id,
+                "title": offer.get("title") or sample.get("title") or "Oferta removida",
+                "category": offer.get("category") or sample.get("category") or "Outros",
+                "image": offer.get("image") or "",
+                "clicks": count,
+            }
+        )
+
+    ctr = round((clicks / views) * 100, 2) if views else 0.0
+    previous_ctr = round((previous_clicks / previous_views) * 100, 2) if previous_views else 0.0
+    return {
+        "periodDays": days,
+        "generatedAt": now.isoformat(),
+        "totals": {
+            "clicks": clicks,
+            "views": views,
+            "ctr": ctr,
+            "conversions": conversions,
+        },
+        "changes": {
+            "clicks": analytics_percent_change(clicks, previous_clicks),
+            "views": analytics_percent_change(views, previous_views),
+            "ctr": round(ctr - previous_ctr, 1),
+            "conversions": analytics_percent_change(conversions, previous_conversions),
+        },
+        "timeline": timeline,
+        "categories": ranked(category_counts),
+        "stores": ranked(store_counts),
+        "devices": ranked(device_counts),
+        "topOffers": top_offers,
+    }
 
 
 def upsert_offer(offer: dict) -> tuple[dict, bool]:
@@ -651,6 +797,18 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
             write_json(self, {"requests": offer_storage.read_discount_requests()})
             return
 
+        if parsed.path == "/api/analytics":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            try:
+                requested_days = int(parse_qs(parsed.query).get("days", ["30"])[0])
+                days = requested_days if requested_days in {7, 30, 90} else 30
+                write_json(self, build_analytics_report(days))
+            except (TypeError, ValueError) as error:
+                write_json(self, {"error": str(error)}, 400)
+            return
+
         if parsed.path == "/api/auth":
             write_json(self, {"authenticated": is_authenticated(self)})
             return
@@ -770,6 +928,45 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
+
+        if parsed.path == "/api/analytics/events":
+            forwarded = self.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+            client = forwarded or self.client_address[0]
+            if not allow_analytics_event(client):
+                write_json(self, {"error": "Muitos eventos enviados."}, 429)
+                return
+            try:
+                payload = read_json_body(self) or {}
+                if not isinstance(payload, dict):
+                    raise ValueError("Evento invalido.")
+                event_type = str(payload.get("type") or "").strip()
+                if event_type not in {"page_view", "product_view", "offer_click", "outbound_click"}:
+                    raise ValueError("Tipo de evento invalido.")
+                client_time = str(payload.get("occurredAt") or "").strip()
+                try:
+                    occurred_at = datetime.fromisoformat(client_time.replace("Z", "+00:00"))
+                    if occurred_at.tzinfo is None:
+                        raise ValueError
+                    occurred_at_value = occurred_at.astimezone(timezone.utc).isoformat()
+                except ValueError:
+                    occurred_at_value = datetime.now(timezone.utc).isoformat()
+                event = {
+                    "id": secrets.token_hex(12),
+                    "type": event_type,
+                    "offerId": str(payload.get("offerId") or "")[:120],
+                    "title": str(payload.get("title") or "")[:240],
+                    "category": str(payload.get("category") or "")[:100],
+                    "store": str(payload.get("store") or "")[:100],
+                    "path": str(payload.get("path") or "")[:240],
+                    "device": analytics_device(self.headers.get("User-Agent", "")),
+                    "occurredAt": occurred_at_value,
+                }
+                ensure_offers_db()
+                offer_storage.create_analytics_event(event)
+                write_json(self, {"ok": True}, 202)
+            except (json.JSONDecodeError, TypeError, ValueError) as error:
+                write_json(self, {"error": str(error)}, 400)
+            return
 
         if parsed.path == "/api/discount-requests":
             try:
