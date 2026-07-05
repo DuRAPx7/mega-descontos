@@ -2,32 +2,43 @@ MEGA DESCONTOS - ATALHOS
 
 Use estes arquivos para operar o projeto sem mexer nos arquivos internos.
 
-1. iniciar_site.bat
+1. instalar_automacao_completa.bat
+   Execute uma unica vez neste computador.
+   Configura Mercado Livre e Amazon, inicia os agentes e faz com que eles
+   abram automaticamente junto com o Windows.
+   Depois disso, o uso diario e feito somente pelo botao "Rodar bot agora"
+   no painel do site.
+
+2. iniciar_site.bat
    Abre o site local em http://127.0.0.1:8000
 
-2. automatizar_mercado_livre_online.bat
+3. automatizar_mercado_livre_online.bat
    Gera links do Mercado Livre e cadastra no site online.
 
-3. automatizar_shopee_online.bat
+4. automatizar_shopee_online.bat
    Le um CSV baixado manualmente na Shopee, gera links afiliados e cadastra no site online.
 
-4. abrir_gerador_mercado_livre.bat
+5. abrir_gerador_mercado_livre.bat
    Abre somente o gerador do Mercado Livre em navegador controlavel.
 
-5. automatizar_amazon_online.bat
+6. automatizar_amazon_online.bat
    Busca ofertas na Amazon, monta links com sua tag e cadastra no site online.
 
-6. abrir_gerador_shopee.bat
+7. abrir_gerador_shopee.bat
    Abre somente o gerador da Shopee em navegador controlavel.
 
-7. gerar_links_mercado_livre.bat
+8. gerar_links_mercado_livre.bat
    Usa o gerador ja aberto para criar CSV de links Mercado Livre.
 
-8. gerar_links_shopee.bat
+9. gerar_links_shopee.bat
    Le um CSV baixado manualmente na Shopee e usa o gerador para criar CSV de links afiliados.
 
-9. rodar_bot.bat
-   Roda somente o bot de ofertas local.
+10. rodar_bot.bat
+   Faz o fluxo local completo em um clique:
+   - inicia o site se estiver fechado;
+   - roda o bot no banco atual;
+   - abre o site e a fila de revisao;
+   - abre produtos monitorados, status, ofertas geradas e links candidatos.
 
 Arquivos de entrada importantes:
 - bot\links_promocoes_potenciais.txt

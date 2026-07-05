@@ -38,3 +38,19 @@ class PublicPagesTests(unittest.TestCase):
             page = (FRONTEND_DIR / filename).read_text(encoding="utf-8")
             self.assertIn(heading, page)
             self.assertIn("admin-dashboard.js", page)
+
+    def test_bot_shortcut_starts_site_and_opens_work_files(self):
+        shortcut = (ROOT_DIR / "atalhos" / "rodar_bot.bat").read_text(encoding="utf-8")
+        self.assertIn("run_bot_once", shortcut)
+        self.assertIn("/admin-review.html", shortcut)
+        self.assertIn("produtos_monitorados.json", shortcut)
+        self.assertIn("status.json", shortcut)
+
+    def test_complete_automation_installer_configures_both_agents(self):
+        installer = (ROOT_DIR / "atalhos" / "instalar_automacao_completa.bat").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("iniciar_agente_mercado_livre.bat", installer)
+        self.assertIn("iniciar_agente_amazon.bat", installer)
+        self.assertIn("MegaDescontosMercadoLivre.cmd", installer)
+        self.assertIn("MegaDescontosAmazon.cmd", installer)
