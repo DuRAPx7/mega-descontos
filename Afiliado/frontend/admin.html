@@ -1,29 +1,94 @@
 <!doctype html>
 <html lang="pt-BR">
   <head>
-    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Status - Mega Descontos</title>
     <script src="theme.js"></script>
-    <link rel="icon" href="favicon.ico"><link rel="stylesheet" href="styles.css?v=20260628-imagefit-1"><link rel="stylesheet" href="admin.css">
+    <link rel="icon" href="favicon.ico">
+    <link rel="stylesheet" href="styles.css?v=20260705-neon-request-1">
+    <link rel="stylesheet" href="admin.css?v=20260705-admin-dashboard-1">
   </head>
-  <body class="admin-page compact-admin" data-admin-page="status">
+  <body class="admin-page admin-dashboard-page" data-admin-page="status">
     <header class="admin-header">
       <a class="brand" href="index.html"><img class="brand-logo" src="assets/mega-descontos-icon.png" alt=""><span><strong>MEGA</strong><strong>DESCONTOS</strong></span></a>
-      <nav class="admin-nav"><button class="theme-toggle" type="button" data-theme-toggle>Tema escuro</button><a href="index.html">Ver site</a><button id="logoutAdmin" type="button">Sair</button></nav>
-    </header>
-    <main class="admin-shell compact-admin-shell">
-      <nav class="admin-sections" aria-label="Paginas administrativas">
-        <a class="active" href="admin.html">Status</a><a href="admin-review.html">Revisao</a><a href="admin-offers.html">Ofertas</a><a href="admin-settings.html">Configuracoes</a>
+      <nav class="admin-sections admin-top-nav" aria-label="Páginas administrativas">
+        <a class="active" href="admin.html"><span>▥</span>Status</a>
+        <a href="admin-review.html"><span>▣</span>Revisão</a>
+        <a href="admin-offers.html"><span>◇</span>Ofertas</a>
+        <a href="admin-settings.html"><span>⚙</span>Configurações</a>
       </nav>
-      <section class="admin-intro"><div><p class="admin-kicker">Painel administrativo</p><h1>Status das lojas</h1><p>Depois da configuração inicial dos agentes, um clique coleta, gera os links e publica as ofertas.</p></div><div class="admin-stats"><strong id="adminTotalOffers">0</strong><span>ofertas publicadas</span></div></section>
-      <section class="import-panel status-panel">
-        <div class="panel-heading"><div><h2>Ultima coleta</h2><p>Resultado das fontes conectadas.</p></div><span id="storageStatus" class="status-pill">Verificando</span></div>
-        <div class="bot-status-list" id="botStatusList"></div><p class="import-status" id="botStatusSummary"></p>
-        <div class="agent-status-row"><span id="automationAgentState" class="status-pill">Mercado Livre</span><p id="automationAgentMessage">Verificando agente Mercado Livre...</p></div>
-        <div class="agent-status-row"><span id="amazonAgentState" class="status-pill">Amazon</span><p id="amazonAgentMessage">Verificando agente Amazon...</p></div>
-        <button id="runBotNow" class="primary-admin-button" type="button">Rodar automação completa</button><p class="import-status" id="runBotStatus">Os agentes devem aparecer como prontos antes do primeiro uso.</p>
+      <nav class="admin-nav">
+        <button class="admin-notification" type="button" aria-label="Notificações">♧<b>2</b></button>
+        <button class="admin-avatar" id="logoutAdmin" type="button" aria-label="Sair do painel">AD</button>
+      </nav>
+    </header>
+
+    <main class="admin-shell compact-admin-shell status-dashboard">
+      <section class="admin-intro dashboard-intro">
+        <div class="dashboard-title">
+          <p class="admin-kicker">Painel administrativo</p>
+          <h1>Status das lojas</h1>
+          <p>Acompanhe em tempo real o status das coletas, ofertas e integrações das lojas.<br>Todos os dados são atualizados automaticamente.</p>
+        </div>
+        <div class="admin-stats dashboard-offer-total">
+          <span class="dashboard-bag">♧</span>
+          <div><strong id="adminTotalOffers">0</strong><b>ofertas publicadas</b><small>↗ Catálogo atualizado</small></div>
+        </div>
+      </section>
+
+      <section class="status-dashboard-panel">
+        <div class="dashboard-panel-heading">
+          <div><span class="heading-icon">◷</span><div><h2>Última coleta</h2><p>Resultado das fontes conectadas</p></div></div>
+          <span id="storageStatus" class="status-pill">Verificando banco</span>
+        </div>
+
+        <div class="store-status-grid">
+          <article class="store-status-card store-ml">
+            <div class="store-card-heading"><span class="store-logo logo-ml">ML</span><div><h3>Mercado Livre</h3><span id="mlStoreState" class="store-active">● Verificando</span></div><b>›</b></div>
+            <div class="store-card-metrics"><span><strong id="mlApproved">0</strong><small>itens aprovados</small></span><span><strong id="mlFailed">0</strong><small>falharam</small></span></div>
+            <p>◷ Última execução: <time id="mlLastRun">—</time></p>
+          </article>
+          <article class="store-status-card store-shopee">
+            <div class="store-card-heading"><span class="store-logo logo-shopee">S</span><div><h3>Shopee</h3><span id="shopeeStoreState" class="store-active">● Verificando</span></div><b>›</b></div>
+            <div class="store-card-metrics"><span><strong id="shopeeApproved">0</strong><small>itens aprovados</small></span><span><strong id="shopeeFailed">0</strong><small>falharam</small></span></div>
+            <p>◷ Última execução: <time id="shopeeLastRun">—</time></p>
+          </article>
+          <article class="store-status-card store-amazon">
+            <div class="store-card-heading"><span class="store-logo logo-amazon">a</span><div><h3>Amazon</h3><span id="amazonStoreState" class="store-active">● Verificando</span></div><b>›</b></div>
+            <div class="store-card-metrics"><span><strong id="amazonApproved">0</strong><small>itens aprovados</small></span><span><strong id="amazonFailed">0</strong><small>falharam</small></span></div>
+            <p>◷ Última execução: <time id="amazonLastRun">—</time></p>
+          </article>
+        </div>
+
+        <section class="agent-activity">
+          <h3>♧ &nbsp; Atividade dos agentes</h3>
+          <div class="agent-activity-row">
+            <span class="agent-dot"></span><span class="store-logo mini logo-ml">ML</span><strong>Mercado Livre</strong>
+            <span id="automationAgentState" class="status-pill">Verificando</span>
+            <p id="automationAgentMessage">Verificando agente Mercado Livre...</p><time id="automationAgentTime">—</time>
+          </div>
+          <div class="agent-activity-row">
+            <span class="agent-dot"></span><span class="store-logo mini logo-amazon">a</span><strong>Amazon</strong>
+            <span id="amazonAgentState" class="status-pill">Verificando</span>
+            <p id="amazonAgentMessage">Verificando agente Amazon...</p><time id="amazonAgentTime">—</time>
+          </div>
+        </section>
+
+        <button id="runBotNow" class="dashboard-run-button" type="button">⟳ &nbsp; Rodar automação completa</button>
+        <p class="import-status dashboard-run-status" id="runBotStatus"></p>
+        <div class="bot-status-list" id="botStatusList" hidden></div>
+        <p class="import-status" id="botStatusSummary" hidden></p>
+      </section>
+
+      <section class="dashboard-totals">
+        <article><span>🛒</span><div><strong id="dashboardTotalOffers">0</strong><small>Total de ofertas publicadas</small></div></article>
+        <article><span>✓</span><div><strong id="dashboardApproved">0</strong><small>Total de itens aprovados</small></div></article>
+        <article class="fail-total"><span>×</span><div><strong id="dashboardFailures">0</strong><small>Total de falhas</small></div></article>
+        <article><span>⟳</span><div><strong id="dashboardLastRun">—</strong><small>Última execução geral</small></div></article>
       </section>
     </main>
-    <script>window.MegaTheme.init();</script><script src="admin-dashboard.js?v=20260705-one-click-1"></script>
+    <script>window.MegaTheme.init();</script>
+    <script src="admin-dashboard.js?v=20260705-admin-dashboard-1"></script>
   </body>
 </html>

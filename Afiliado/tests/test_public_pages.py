@@ -39,6 +39,21 @@ class PublicPagesTests(unittest.TestCase):
             self.assertIn(heading, page)
             self.assertIn("admin-dashboard.js", page)
 
+    def test_admin_status_has_store_dashboard(self):
+        page = (FRONTEND_DIR / "admin.html").read_text(encoding="utf-8")
+        styles = (FRONTEND_DIR / "admin.css").read_text(encoding="utf-8")
+        script = (FRONTEND_DIR / "admin-dashboard.js").read_text(encoding="utf-8")
+        for element_id in (
+            "mlApproved",
+            "shopeeApproved",
+            "amazonApproved",
+            "automationAgentState",
+            "dashboardTotalOffers",
+        ):
+            self.assertIn(f'id="{element_id}"', page)
+        self.assertIn(".store-status-grid", styles)
+        self.assertIn("summarizeStore", script)
+
     def test_bot_shortcut_starts_site_and_opens_work_files(self):
         shortcut = (ROOT_DIR / "atalhos" / "rodar_bot.bat").read_text(encoding="utf-8")
         self.assertIn("run_bot_once", shortcut)
