@@ -1,6 +1,7 @@
 const OFFERS_STORAGE_KEY = "mega_descontos_offers";
 const FAVORITES_STORAGE_KEY = "mega_descontos_favorites";
 const API_OFFERS_URL = "/api/offers";
+const API_DISCOUNT_REQUESTS_URL = "/api/discount-requests";
 
 let offers = [...(window.DEFAULT_OFFERS || [])];
 let favorites = loadFavorites();
@@ -30,6 +31,8 @@ const resultsCount = document.querySelector("#resultsCount");
 const clearFilters = document.querySelector("#clearFilters");
 const favoriteFilterLink = document.querySelector("#favoriteFilterLink");
 const offerPagination = document.querySelector("#offerPagination");
+const discountRequestForm = document.querySelector("#discountRequestForm");
+const discountRequestFeedback = document.querySelector("#discountRequestFeedback");
 
 function loadFavorites() {
   const savedFavorites = localStorage.getItem(FAVORITES_STORAGE_KEY);
@@ -326,6 +329,49 @@ document.querySelector(".newsletter-form").addEventListener("submit", (event) =>
   event.preventDefault();
   event.currentTarget.reset();
   alert("Pronto! Na proxima etapa vamos conectar essa lista a um backend.");
+});
+
+discountRequestForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const submitButton = discountRequestForm.querySelector("button[type='submit']");
+  const product = discountRequestForm.elements.product.value.trim();
+  const contact = discountRequestForm.elements.contact.value.trim();
+
+  if (product.length < 3) {
+    discountRequestFeedback.className = "request-feedback error";
+    discountRequestFeedback.textContent = "Conte qual produto você procura ou cole o link da loja.";
+    discountRequestForm.elements.product.focus();
+    return;
+  }
+
+  submitButton.disabled = true;
+  submitButton.textContent = "Enviando...";
+  discountRequestFeedback.className = "request-feedback";
+  discountRequestFeedback.textContent = "";
+
+  try {
+    if (!isHttpPage()) {
+      throw new Error("Abra o site pelo servidor para enviar sua solicitação.");
+    }
+    const response = await fetch(API_DISCOUNT_REQUESTS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ product, contact })
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || "Não foi possível enviar agora.");
+    }
+    discountRequestForm.reset();
+    discountRequestFeedback.className = "request-feedback success";
+    discountRequestFeedback.textContent = result.message;
+  } catch (error) {
+    discountRequestFeedback.className = "request-feedback error";
+    discountRequestFeedback.textContent = error.message || "Não foi possível enviar agora. Tente novamente.";
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = "Solicitar desconto";
+  }
 });
 
 applyInitialFilters();

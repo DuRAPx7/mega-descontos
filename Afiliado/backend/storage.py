@@ -95,6 +95,15 @@ class OfferStorage:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS discount_requests (
+                id TEXT PRIMARY KEY,
+                payload TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
 
         placeholder = self._placeholder()
         migrated = connection.execute(
@@ -211,6 +220,27 @@ class OfferStorage:
                 (provider,),
             )
             connection.commit()
+
+    def create_discount_request(self, request: dict) -> dict:
+        request_id = str(request["id"])
+        created_at = str(request["createdAt"])
+        serialized = json.dumps(request, ensure_ascii=False, separators=(",", ":"))
+        placeholder = self._placeholder()
+        with self._lock, closing(self._connect()) as connection:
+            connection.execute(
+                "INSERT INTO discount_requests (id, payload, created_at) "
+                f"VALUES ({placeholder}, {placeholder}, {placeholder})",
+                (request_id, serialized, created_at),
+            )
+            connection.commit()
+        return request
+
+    def read_discount_requests(self) -> list[dict]:
+        with self._lock, closing(self._connect()) as connection:
+            rows = connection.execute(
+                "SELECT payload FROM discount_requests ORDER BY created_at DESC"
+            ).fetchall()
+        return self._decode_payload_rows(rows)
 
     @staticmethod
     def _decode_payload_rows(rows) -> list[dict]:

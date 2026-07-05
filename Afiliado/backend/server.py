@@ -632,6 +632,13 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
             write_json(self, {"offers": offers, "removedExpired": removed})
             return
 
+        if parsed.path == "/api/discount-requests":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            write_json(self, {"requests": offer_storage.read_discount_requests()})
+            return
+
         if parsed.path == "/api/auth":
             write_json(self, {"authenticated": is_authenticated(self)})
             return
@@ -751,6 +758,40 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
+
+        if parsed.path == "/api/discount-requests":
+            try:
+                payload = read_json_body(self) or {}
+                if not isinstance(payload, dict):
+                    raise ValueError("Dados invalidos.")
+                product = " ".join(str(payload.get("product") or "").split())
+                contact = " ".join(str(payload.get("contact") or "").split())
+                if len(product) < 3:
+                    raise ValueError("Informe o produto ou cole o link da loja.")
+                if len(product) > 500:
+                    raise ValueError("A descricao do produto e muito longa.")
+                if contact and len(contact) > 180:
+                    raise ValueError("O contato informado e muito longo.")
+                request = {
+                    "id": secrets.token_hex(8),
+                    "product": product,
+                    "contact": contact,
+                    "status": "pending",
+                    "createdAt": datetime.now(timezone.utc).isoformat(),
+                }
+                offer_storage.create_discount_request(request)
+                write_json(
+                    self,
+                    {
+                        "ok": True,
+                        "requestId": request["id"],
+                        "message": "Pedido recebido! Vamos buscar o melhor desconto para voce.",
+                    },
+                    201,
+                )
+            except (json.JSONDecodeError, TypeError, ValueError) as error:
+                write_json(self, {"error": str(error)}, 400)
+            return
 
         if parsed.path == "/api/login":
             config = load_admin_config()

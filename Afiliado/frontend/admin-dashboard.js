@@ -1,5 +1,6 @@
 let adminOffers = [];
 let reviewOffers = [];
+let discountRequests = [];
 let botSettings = {};
 
 const moneyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -77,9 +78,28 @@ function renderReviewOffers() {
 }
 
 async function loadReviewOffers() {
-  const payload = await api("/api/review-offers");
-  reviewOffers = payload.reviewOffers || [];
+  const [reviewPayload, requestPayload] = await Promise.all([
+    api("/api/review-offers"),
+    api("/api/discount-requests")
+  ]);
+  reviewOffers = reviewPayload.reviewOffers || [];
+  discountRequests = requestPayload.requests || [];
   renderReviewOffers();
+  renderDiscountRequests();
+}
+
+function renderDiscountRequests() {
+  if (byId("discountRequestCount")) byId("discountRequestCount").textContent = discountRequests.length;
+  if (!byId("discountRequestList")) return;
+  byId("discountRequestList").innerHTML = discountRequests.map((request) => `
+    <article class="discount-request-admin-card">
+      <div>
+        <h3>${escapeHtml(request.product)}</h3>
+        <p>${request.contact ? `Contato: ${escapeHtml(request.contact)}` : "Cliente não informou contato."}</p>
+      </div>
+      <span>${request.createdAt ? new Date(request.createdAt).toLocaleString("pt-BR") : ""}</span>
+    </article>
+  `).join("") || "<p>Nenhuma solicitação de desconto recebida.</p>";
 }
 
 async function reviewAction(action, id) {

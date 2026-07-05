@@ -20,6 +20,13 @@ class PublicPagesTests(unittest.TestCase):
         self.assertIn("const OFFERS_PER_PAGE = 25", script)
         self.assertIn("repeat(5, minmax(0, 1fr))", styles)
 
+    def test_home_has_discount_request_flow(self):
+        page = (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
+        script = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
+        self.assertIn('id="discountRequestForm"', page)
+        self.assertIn('id="discountRequestFeedback"', page)
+        self.assertIn('"/api/discount-requests"', script)
+
     def test_admin_is_split_into_four_pages(self):
         expected = {
             "admin.html": "Status das lojas",
