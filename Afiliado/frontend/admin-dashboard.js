@@ -115,12 +115,69 @@ async function reviewAction(action, id) {
   }
 }
 
-function renderBotStatus(status) {
+function formatDashboardDate(value) {
+  return value ? new Date(value).toLocaleString("pt-BR") : "—";
+}
+
+function sourceBelongsToStore(source, store) {
+  const value = `${source.name || ""} ${source.type || ""}`.toLowerCase();
+  const terms = {
+    ml: ["mercadolivre", "mercado livre"],
+    shopee: ["shopee"],
+    amazon: ["amazon"]
+  };
+  return terms[store].some((term) => value.includes(term));
+}
+
+function summarizeStore(status, offers, store, agentStatus = null) {
+  const sources = (status.sources || []).filter((source) => sourceBelongsToStore(source, store));
+  const storeNames = { ml: "Mercado Livre", shopee: "Shopee", amazon: "Amazon" };
+  const published = offers.filter((offer) => offer.store === storeNames[store]).length;
+  const approvedFromRun = sources
+    .filter((source) => source.ok)
+    .reduce((total, source) => total + Number(source.count || 0), 0);
+  const failed = sources.filter((source) => !source.ok).length + Number(agentStatus?.failed || 0);
+  const timestamps = sources.map((source) => source.checkedAt).filter(Boolean);
+  if (agentStatus?.updatedAt) timestamps.push(agentStatus.updatedAt);
+  return {
+    approved: approvedFromRun || published,
+    failed,
+    checkedAt: timestamps.sort().at(-1) || status.checkedAt || "",
+  };
+}
+
+function setStoreDashboard(store, summary, active) {
+  if (byId(`${store}Approved`)) byId(`${store}Approved`).textContent = summary.approved;
+  if (byId(`${store}Failed`)) byId(`${store}Failed`).textContent = summary.failed;
+  if (byId(`${store}LastRun`)) byId(`${store}LastRun`).textContent = formatDashboardDate(summary.checkedAt);
+  const state = byId(`${store}StoreState`);
+  if (state) {
+    state.textContent = active ? "● Ativo" : "● Offline";
+    state.className = `store-active ${active ? "" : "offline"}`;
+  }
+}
+
+function renderBotStatus(status, offers = [], agents = {}) {
   const sources = status.sources || [];
-  byId("botStatusList").innerHTML = sources.map((source) => `
-    <article class="bot-status-item ${source.ok ? "ok" : "error"}"><strong>${escapeHtml(source.name || source.type)}</strong><span>${source.ok ? `${source.count || 0} itens aprovados pelo filtro` : `Erro: ${escapeHtml(source.error)}`}</span><span>${escapeHtml(source.type)}</span></article>
-  `).join("") || "<p>Nenhuma execucao registrada.</p>";
-  byId("botStatusSummary").textContent = status.checkedAt ? `Ultima execucao: ${new Date(status.checkedAt).toLocaleString("pt-BR")}` : "O bot ainda nao registrou uma execucao.";
+  const mlSummary = summarizeStore(status, offers, "ml", agents.mercadoLivre);
+  const shopeeSummary = summarizeStore(status, offers, "shopee");
+  const amazonSummary = summarizeStore(status, offers, "amazon", agents.amazon);
+  setStoreDashboard("ml", mlSummary, agentIsOnline(agents.mercadoLivre || {}));
+  setStoreDashboard("shopee", shopeeSummary, !sources.some((source) => sourceBelongsToStore(source, "shopee") && !source.ok));
+  setStoreDashboard("amazon", amazonSummary, agentIsOnline(agents.amazon || {}));
+
+  const approved = mlSummary.approved + shopeeSummary.approved + amazonSummary.approved;
+  const failures = mlSummary.failed + shopeeSummary.failed + amazonSummary.failed;
+  if (byId("dashboardTotalOffers")) byId("dashboardTotalOffers").textContent = offers.length;
+  if (byId("dashboardApproved")) byId("dashboardApproved").textContent = approved;
+  if (byId("dashboardFailures")) byId("dashboardFailures").textContent = failures;
+  if (byId("dashboardLastRun")) byId("dashboardLastRun").textContent = formatDashboardDate(status.checkedAt);
+  if (byId("botStatusList")) {
+    byId("botStatusList").innerHTML = sources.map((source) => `
+      <article class="bot-status-item ${source.ok ? "ok" : "error"}"><strong>${escapeHtml(source.name || source.type)}</strong><span>${source.ok ? `${source.count || 0} itens aprovados pelo filtro` : `Erro: ${escapeHtml(source.error)}`}</span><span>${escapeHtml(source.type)}</span></article>
+    `).join("") || "<p>Nenhuma execucao registrada.</p>";
+  }
+  if (byId("botStatusSummary")) byId("botStatusSummary").textContent = status.checkedAt ? `Ultima execucao: ${formatDashboardDate(status.checkedAt)}` : "O bot ainda nao registrou uma execucao.";
 }
 
 async function loadStatus() {
@@ -133,10 +190,14 @@ async function loadStatus() {
   ]);
   byId("storageStatus").textContent = health.persistent ? "Banco persistente" : "Banco temporario";
   byId("storageStatus").className = `status-pill ${health.persistent ? "ok" : "error"}`;
-  byId("adminTotalOffers").textContent = (offers.offers || []).length;
-  renderBotStatus(status);
-  renderAutomationAgentStatus(agent.status || {}, "automationAgentState", "automationAgentMessage", "Mercado Livre");
-  renderAutomationAgentStatus(amazonAgent.status || {}, "amazonAgentState", "amazonAgentMessage", "Amazon");
+  const publishedOffers = offers.offers || [];
+  byId("adminTotalOffers").textContent = publishedOffers.length;
+  renderBotStatus(status, publishedOffers, {
+    mercadoLivre: agent.status || {},
+    amazon: amazonAgent.status || {}
+  });
+  renderAutomationAgentStatus(agent.status || {}, "automationAgentState", "automationAgentMessage", "Mercado Livre", "automationAgentTime");
+  renderAutomationAgentStatus(amazonAgent.status || {}, "amazonAgentState", "amazonAgentMessage", "Amazon", "amazonAgentTime");
   return {
     mercadoLivre: agent.status || {},
     amazon: amazonAgent.status || {}
@@ -148,14 +209,15 @@ function agentIsOnline(status) {
   return Boolean(updatedAt && Date.now() - updatedAt < 70000);
 }
 
-function renderAutomationAgentStatus(status, stateId, messageId, store) {
+function renderAutomationAgentStatus(status, stateId, messageId, store, timeId = "") {
   if (!byId(stateId)) return;
   const online = agentIsOnline(status);
   const state = online ? status.state || "idle" : "offline";
-  const labels = { idle: "Agente pronto", processing: "Gerando links", completed: "Concluido", error: "Erro no agente", offline: "Agente offline" };
-  byId(stateId).textContent = `${store}: ${labels[state] || "Agente local"}`;
+  const labels = { idle: "Agente online", processing: "Processando", completed: "Concluído", error: "Erro no agente", offline: "Agente offline" };
+  byId(stateId).textContent = labels[state] || "Agente local";
   byId(stateId).className = `status-pill ${state === "error" || state === "offline" ? "error" : "ok"}`;
   byId(messageId).textContent = status.message || `Inicie o agente local da ${store}.`;
+  if (timeId && byId(timeId)) byId(timeId).textContent = status.updatedAt ? new Date(status.updatedAt).toLocaleTimeString("pt-BR") : "—";
 }
 
 async function waitForAutomationAgent(startedAt, endpoint, stateId, messageId, store) {
