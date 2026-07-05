@@ -1,10 +1,23 @@
 import unittest
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 from backend import server
 
 
 class ServerSettingsTests(unittest.TestCase):
+    def test_agent_status_uses_valid_client_utc_timestamp(self):
+        from backend.server import agent_updated_at
+
+        timestamp = datetime.now(timezone.utc).isoformat()
+        self.assertEqual(agent_updated_at({"clientUpdatedAt": timestamp}), timestamp)
+
+    def test_agent_status_rejects_invalid_client_timestamp(self):
+        from backend.server import agent_updated_at
+
+        parsed = datetime.fromisoformat(agent_updated_at({"clientUpdatedAt": "invalido"}))
+        self.assertIsNotNone(parsed.tzinfo)
+
     def test_normalizes_bot_settings(self):
         settings = server.normalize_bot_settings(
             {

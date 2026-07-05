@@ -210,13 +210,25 @@ def read_automation_agent_status() -> dict:
     }
 
 
+def agent_updated_at(payload: dict) -> str:
+    client_value = str(payload.get("clientUpdatedAt") or "").strip()
+    if client_value:
+        try:
+            parsed = datetime.fromisoformat(client_value.replace("Z", "+00:00"))
+            if parsed.tzinfo is not None:
+                return parsed.astimezone(timezone.utc).isoformat()
+        except ValueError:
+            pass
+    return datetime.now(timezone.utc).isoformat()
+
+
 def write_automation_agent_status(payload: dict) -> dict:
     status = {
         "state": str(payload.get("state") or "idle")[:32],
         "message": str(payload.get("message") or "")[:500],
         "processed": max(0, int(payload.get("processed") or 0)),
         "failed": max(0, int(payload.get("failed") or 0)),
-        "updatedAt": datetime.now(timezone.utc).isoformat(),
+        "updatedAt": agent_updated_at(payload),
     }
     offer_storage.set_integration(AUTOMATION_AGENT_PROVIDER, status)
     return status
@@ -286,7 +298,7 @@ def write_amazon_agent_status(payload: dict) -> dict:
         "message": str(payload.get("message") or "")[:500],
         "processed": max(0, int(payload.get("processed") or 0)),
         "failed": max(0, int(payload.get("failed") or 0)),
-        "updatedAt": datetime.now(timezone.utc).isoformat(),
+        "updatedAt": agent_updated_at(payload),
     }
     offer_storage.set_integration(AMAZON_AGENT_PROVIDER, status)
     return status
