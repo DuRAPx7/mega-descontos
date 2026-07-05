@@ -8,14 +8,13 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico?v=20260620-3">
     <link rel="apple-touch-icon" href="assets/mega-descontos-icon.png">
     <link rel="preconnect" href="https://images.unsplash.com">
-    <link rel="stylesheet" href="styles.css?v=20260628-imagefit-1">
+    <link rel="stylesheet" href="styles.css?v=20260705-neon-request-1">
   </head>
   <body>
     <div class="notice-bar">
-      <span class="notice-text">Ofertas atualizadas em tempo real pelo nosso bot de descontos!</span>
+      <span class="notice-text"><strong>OFERTAS RELÂMPAGO!</strong> Os melhores descontos em tempo real para você economizar mais!</span>
       <div class="notice-links">
-        <a href="#bot">Como funciona?</a>
-        <a href="#blog">Blog</a>
+        <a class="signup-link" href="#newsletter">Ative os alertas e não perca!</a>
       </div>
     </div>
 
@@ -34,9 +33,9 @@
       </form>
 
       <div class="header-actions">
-        <button class="theme-toggle" type="button" data-theme-toggle>Tema escuro</button>
-        <a href="#ofertas" id="favoriteFilterLink">Favoritos</a>
-        <a href="#newsletter">Alertas</a>
+        <button class="theme-toggle header-action" type="button" data-theme-toggle><span>◐</span>Tema</button>
+        <a class="header-action" href="#ofertas" id="favoriteFilterLink"><span>♡</span>Favoritos</a>
+        <a class="header-action" href="#newsletter"><span>♧</span>Alertas</a>
       </div>
     </header>
 
@@ -46,6 +45,8 @@
       <a href="#lojas">Lojas</a>
       <a href="#ofertas">Ofertas do Dia</a>
       <a href="#cupons">Cupons</a>
+      <a href="#bot">Como funciona?</a>
+      <a href="#newsletter">Blog</a>
     </nav>
 
     <main>
@@ -53,10 +54,16 @@
         <button class="hero-arrow left" aria-label="Oferta anterior">&lsaquo;</button>
         <div class="hero-copy">
           <h1>Os melhores descontos das <span>melhores lojas!</span></h1>
-          <p>Nosso bot encontra as melhores ofertas em tempo real e voce economiza mais com nossos links de afiliado.</p>
+          <p>Ofertas em tempo real, cupons exclusivos e os menores preços para você.</p>
+          <div class="hero-benefits" aria-label="Benefícios">
+            <span>◴ <small>Atualização<br>em tempo real</small></span>
+            <span>☆ <small>Cupons<br>exclusivos</small></span>
+            <span>♢ <small>100% seguro<br>e confiável</small></span>
+            <span>✧ <small>Melhores<br>lojas parceiras</small></span>
+          </div>
           <div class="hero-actions">
-            <a class="primary-button" href="#ofertas">Ver ofertas do dia</a>
-            <a class="secondary-button" href="#bot">Como funciona?</a>
+            <a class="primary-button" href="#ofertas">ϟ&nbsp; Ver ofertas do dia</a>
+            <a class="secondary-button" href="#bot">▶&nbsp; Como funciona?</a>
           </div>
         </div>
         <div class="hero-visual" aria-hidden="true">
@@ -80,15 +87,48 @@
         </div>
       </section>
 
+      <section class="metrics-strip" aria-label="Números do Mega Descontos">
+        <article><strong>↗</strong><span><b>+ 2 MILHÕES</b> de ofertas disponíveis</span></article>
+        <article><strong>✺</strong><span><b>+ 500 LOJAS</b> parceiras</span></article>
+        <article><strong>♔</strong><span><b>DESCONTOS REAIS</b> atualizados 24h</span></article>
+        <article><strong>♧</strong><span><b>ECONOMIZE MAIS</b> com cupons exclusivos</span></article>
+      </section>
+
+      <section class="discount-request" id="solicitar-desconto">
+        <div class="request-intro">
+          <p>Não encontrou o desconto que esperava?</p>
+          <h2>Solicite um desconto</h2>
+          <span>Informe o produto que você deseja e nossa equipe busca o melhor desconto para você!</span>
+        </div>
+        <form class="discount-request-form" id="discountRequestForm">
+          <div class="request-fields">
+            <label class="sr-only" for="discountProduct">Produto ou link</label>
+            <input id="discountProduct" name="product" required minlength="3" maxlength="500" placeholder="Cole o link do produto ou nome do produto que deseja...">
+            <button type="submit">Solicitar desconto</button>
+          </div>
+          <label class="contact-field" for="discountContact">
+            <span>Onde podemos avisar? <small>(opcional)</small></span>
+            <input id="discountContact" name="contact" maxlength="180" placeholder="Seu e-mail ou WhatsApp">
+          </label>
+          <p class="request-feedback" id="discountRequestFeedback" role="status" aria-live="polite"></p>
+        </form>
+        <div class="request-benefits">
+          <span>▣<small>Resposta rápida</small></span>
+          <span>⌕<small>Busca em várias lojas</small></span>
+          <span>☆<small>Melhor desconto para você</small></span>
+          <span>♧<small>É grátis e sem compromisso</small></span>
+        </div>
+      </section>
+
       <section class="section" id="categorias">
         <div class="section-heading">
-          <h2>Explore por categoria</h2>
+          <h2>Navegue por categorias</h2>
           <a href="#categorias">Ver todas &rsaquo;</a>
         </div>
         <div class="category-grid" id="categoryGrid"></div>
       </section>
 
-      <section class="section" id="lojas">
+      <section class="section stores-section" id="lojas">
         <div class="section-heading">
           <h2>Compre por loja</h2>
           <a href="#ofertas">Ver ofertas &rsaquo;</a>
@@ -210,6 +250,6 @@
 
     <script src="data/offers.js"></script>
     <script>window.MegaTheme.init();</script>
-    <script src="app.js?v=20260624-pagination-1"></script>
+    <script src="app.js?v=20260705-discount-request-1"></script>
   </body>
 </html>

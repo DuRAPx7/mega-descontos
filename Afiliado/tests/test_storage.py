@@ -76,6 +76,20 @@ class OfferStorageTests(unittest.TestCase):
             storage.delete_integration("mercadolivre")
             self.assertIsNone(storage.get_integration("mercadolivre"))
 
+    def test_persists_discount_requests(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            storage = self.make_storage(Path(directory) / "offers.db")
+            storage.initialize([])
+            request = {
+                "id": "pedido-1",
+                "product": "Notebook para trabalho",
+                "contact": "cliente@example.com",
+                "status": "pending",
+                "createdAt": "2026-07-05T12:00:00+00:00",
+            }
+            self.assertEqual(storage.create_discount_request(request), request)
+            self.assertEqual(storage.read_discount_requests(), [request])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -737,3 +737,43 @@
     flex-direction: column;
   }
 }
+
+.request-admin-panel {
+  margin-top: 16px;
+}
+
+.discount-request-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.discount-request-admin-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-left: 3px solid #9d2de2;
+  border-radius: 8px;
+  background: var(--card);
+  padding: 15px 18px;
+}
+
+.discount-request-admin-card h3,
+.discount-request-admin-card p {
+  margin: 0;
+}
+
+.discount-request-admin-card p,
+.discount-request-admin-card > span {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 700px) {
+  .discount-request-admin-card {
+    grid-template-columns: 1fr;
+  }
+}
