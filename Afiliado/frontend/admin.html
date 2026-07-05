@@ -7,7 +7,7 @@
     <script src="theme.js"></script>
     <link rel="icon" href="favicon.ico">
     <link rel="stylesheet" href="styles.css?v=20260705-neon-request-1">
-    <link rel="stylesheet" href="admin.css?v=20260705-analytics-1">
+    <link rel="stylesheet" href="admin.css?v=20260705-magalu-1">
   </head>
   <body class="admin-page admin-dashboard-page" data-admin-page="status">
     <header class="admin-header">
@@ -59,6 +59,11 @@
             <div class="store-card-metrics"><span><strong id="amazonApproved">0</strong><small>itens aprovados</small></span><span><strong id="amazonFailed">0</strong><small>falharam</small></span></div>
             <p>◷ Última execução: <time id="amazonLastRun">—</time></p>
           </article>
+          <article class="store-status-card store-magalu">
+            <div class="store-card-heading"><span class="store-logo logo-magalu">M</span><div><h3>Magalu</h3><span id="magaluStoreState" class="store-active">● Verificando</span></div><b>›</b></div>
+            <div class="store-card-metrics"><span><strong id="magaluApproved">0</strong><small>itens aprovados</small></span><span><strong id="magaluFailed">0</strong><small>falharam</small></span></div>
+            <p>◷ Última execução: <time id="magaluLastRun">—</time></p>
+          </article>
         </div>
 
         <section class="agent-activity">
@@ -72,6 +77,11 @@
             <span class="agent-dot"></span><span class="store-logo mini logo-amazon">a</span><strong>Amazon</strong>
             <span id="amazonAgentState" class="status-pill">Verificando</span>
             <p id="amazonAgentMessage">Verificando agente Amazon...</p><time id="amazonAgentTime">—</time>
+          </div>
+          <div class="agent-activity-row">
+            <span class="agent-dot"></span><span class="store-logo mini logo-magalu">M</span><strong>Magalu</strong>
+            <span id="magaluAgentState" class="status-pill">Verificando</span>
+            <p id="magaluAgentMessage">Verificando agente Magalu...</p><time id="magaluAgentTime">—</time>
           </div>
         </section>
 
@@ -87,6 +97,6 @@
       </section>
     </main>
     <script>window.MegaTheme.init();</script>
-    <script src="admin-dashboard.js?v=20260705-analytics-1"></script>
+    <script src="admin-dashboard.js?v=20260705-magalu-1"></script>
   </body>
 </html>

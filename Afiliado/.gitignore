@@ -5,6 +5,7 @@ __pycache__/
 config/affiliate.json
 config/automation_agent.json
 config/amazon_automation_agent.json
+config/magalu_automation_agent.json
 data/*.db
 data/*.db-shm
 data/*.db-wal

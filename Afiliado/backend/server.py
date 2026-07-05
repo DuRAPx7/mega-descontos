@@ -30,6 +30,8 @@ AUTOMATION_AGENT_PROVIDER = "mercadolivre_automation_agent"
 AUTOMATION_JOB_PROVIDER = "mercadolivre_automation_job"
 AMAZON_AGENT_PROVIDER = "amazon_automation_agent"
 AMAZON_JOB_PROVIDER = "amazon_automation_job"
+MAGALU_AGENT_PROVIDER = "magalu_automation_agent"
+MAGALU_JOB_PROVIDER = "magalu_automation_job"
 SNAPSHOT_CLEANUP_SOURCES = {"shopee_open_api"}
 DEFAULT_BOT_SETTINGS = {
     "minimumDiscount": 15,
@@ -486,6 +488,62 @@ def finish_amazon_job(job_id: str, state: str = "completed") -> dict:
     return job
 
 
+def read_magalu_agent_status() -> dict:
+    return offer_storage.get_integration(MAGALU_AGENT_PROVIDER) or {
+        "state": "offline",
+        "message": "O agente Magalu ainda nao se conectou.",
+        "updatedAt": "",
+    }
+
+
+def write_magalu_agent_status(payload: dict) -> dict:
+    status = {
+        "state": str(payload.get("state") or "idle")[:32],
+        "message": str(payload.get("message") or "")[:500],
+        "processed": max(0, int(payload.get("processed") or 0)),
+        "failed": max(0, int(payload.get("failed") or 0)),
+        "updatedAt": agent_updated_at(payload),
+    }
+    offer_storage.set_integration(MAGALU_AGENT_PROVIDER, status)
+    return status
+
+
+def queue_magalu_job() -> dict:
+    job = {
+        "id": secrets.token_hex(8),
+        "state": "pending",
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+    }
+    offer_storage.set_integration(MAGALU_JOB_PROVIDER, job)
+    return job
+
+
+def claim_magalu_job() -> dict:
+    job = offer_storage.get_integration(MAGALU_JOB_PROVIDER) or {}
+    if job.get("state") != "pending":
+        return job
+    job = {
+        **job,
+        "state": "processing",
+        "claimedAt": datetime.now(timezone.utc).isoformat(),
+    }
+    offer_storage.set_integration(MAGALU_JOB_PROVIDER, job)
+    return job
+
+
+def finish_magalu_job(job_id: str, state: str = "completed") -> dict:
+    job = offer_storage.get_integration(MAGALU_JOB_PROVIDER) or {}
+    if not job or str(job.get("id")) != str(job_id):
+        raise ValueError("O lote Magalu nao existe mais.")
+    job = {
+        **job,
+        "state": state if state in {"completed", "failed"} else "completed",
+        "finishedAt": datetime.now(timezone.utc).isoformat(),
+    }
+    offer_storage.set_integration(MAGALU_JOB_PROVIDER, job)
+    return job
+
+
 def read_deal_candidates() -> list[dict]:
     return [
         candidate for candidate in read_candidates()
@@ -875,6 +933,20 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
             write_json(self, {"job": claim_amazon_job()})
             return
 
+        if parsed.path == "/api/magalu-automation-agent/status":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            write_json(self, {"status": read_magalu_agent_status()})
+            return
+
+        if parsed.path == "/api/magalu-automation-agent/work":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            write_json(self, {"job": claim_magalu_job()})
+            return
+
         if parsed.path == "/api/review-offers":
             if not is_authenticated(self):
                 write_json(self, {"error": "Nao autorizado."}, 401)
@@ -1043,6 +1115,7 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
             if result.get("ok"):
                 job = queue_automation_job()
                 amazon_job = queue_amazon_job()
+                magalu_job = queue_magalu_job()
                 result["automationJob"] = {
                     "id": job["id"],
                     "state": job["state"],
@@ -1051,6 +1124,10 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 result["amazonAutomationJob"] = {
                     "id": amazon_job["id"],
                     "state": amazon_job["state"],
+                }
+                result["magaluAutomationJob"] = {
+                    "id": magalu_job["id"],
+                    "state": magalu_job["state"],
                 }
             write_json(self, result, 200 if result.get("ok") else 502)
             return
@@ -1118,6 +1195,32 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
             try:
                 payload = read_json_body(self) or {}
                 job = finish_amazon_job(
+                    str(payload.get("jobId") or ""),
+                    str(payload.get("state") or "completed"),
+                )
+                write_json(self, {"ok": True, "job": job})
+            except (TypeError, ValueError) as error:
+                write_json(self, {"error": str(error)}, 400)
+            return
+
+        if parsed.path == "/api/magalu-automation-agent/status":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            try:
+                payload = read_json_body(self) or {}
+                write_json(self, {"ok": True, "status": write_magalu_agent_status(payload)})
+            except (TypeError, ValueError) as error:
+                write_json(self, {"error": str(error)}, 400)
+            return
+
+        if parsed.path == "/api/magalu-automation-agent/job/complete":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            try:
+                payload = read_json_body(self) or {}
+                job = finish_magalu_job(
                     str(payload.get("jobId") or ""),
                     str(payload.get("state") or "completed"),
                 )
@@ -1296,6 +1399,44 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 if not offer:
                     raise ValueError("O link nao informou uma oferta ativa com preco anterior e atual.")
                 offer["source"] = "shopee_affiliate_link"
+                offer, created = upsert_offer(offer)
+                write_json(self, {"offer": offer, "created": created})
+            except Exception as error:
+                write_json(self, {"error": str(error)}, 400)
+            return
+
+        if parsed.path == "/api/magalu/import-link":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            try:
+                payload = read_json_body(self) or {}
+                if not isinstance(payload, dict):
+                    raise ValueError("Dados invalidos.")
+                affiliate_url = str(payload.get("affiliateUrl") or "").strip()
+                category = str(payload.get("category") or "Ofertas").strip()
+                from bot.magalu_discovery_bot import is_influencer_product_url
+
+                if not is_influencer_product_url(affiliate_url):
+                    raise ValueError("Use o link do produto dentro da sua loja do Influenciador Magalu.")
+                if not all(payload.get(field) not in (None, "") for field in ("title", "image", "oldPrice", "currentPrice")):
+                    raise ValueError("Os dados da oferta Magalu estao incompletos.")
+                bot = load_discount_bot()
+                product = {
+                    "id": str(payload.get("sourceProductId") or payload.get("productUrl") or affiliate_url),
+                    "title": str(payload["title"]).strip(),
+                    "store": "Magalu",
+                    "category": category,
+                    "affiliateUrl": affiliate_url,
+                    "oldPrice": float(payload["oldPrice"]),
+                    "currentPrice": float(payload["currentPrice"]),
+                    "image": str(payload["image"]).strip(),
+                    "expiresAt": str(payload.get("expiresAt") or ""),
+                }
+                offer = bot.normalize_product(product, minimum_discount=1)
+                if not offer:
+                    raise ValueError("O link nao informou uma oferta ativa com preco anterior e atual.")
+                offer["source"] = "magalu_affiliate_link"
                 offer, created = upsert_offer(offer)
                 write_json(self, {"offer": offer, "created": created})
             except Exception as error:

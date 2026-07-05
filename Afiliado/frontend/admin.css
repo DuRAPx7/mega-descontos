@@ -1025,7 +1025,7 @@
 
 .store-status-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 24px;
   margin-top: 22px;
 }
@@ -1074,6 +1074,14 @@
   background: linear-gradient(90deg, #2b9dff, transparent);
 }
 
+.store-magalu {
+  border-left-color: #22c55e;
+}
+
+.store-magalu::before {
+  background: linear-gradient(90deg, #22c55e, transparent);
+}
+
 .store-card-heading {
   position: relative;
   display: grid;
@@ -1119,6 +1127,12 @@
 .logo-amazon {
   font-family: Georgia, serif;
   font-size: 2.5rem;
+}
+
+.logo-magalu {
+  background: linear-gradient(135deg, #0086ff, #25d366);
+  color: white;
+  font-size: 1.5rem;
 }
 
 .store-active {
