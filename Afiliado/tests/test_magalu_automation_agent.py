@@ -2,7 +2,11 @@ import unittest
 from unittest.mock import patch
 
 from bot import magalu_automation_agent as agent
-from bot.magalu_discovery_bot import collect_offers_from_page, is_influencer_product_url
+from bot.magalu_discovery_bot import (
+    collect_offers_from_page,
+    extract_magalu_prices,
+    is_influencer_product_url,
+)
 
 
 class FakePage:
@@ -12,6 +16,7 @@ class FakePage:
                 "url": "https://www.magazinevoce.com.br/minhaloja/fone-bluetooth/p/abc123/ea/fone/",
                 "title": "Fone Bluetooth sem fio com cancelamento de ruido",
                 "image": "https://a-static.mlcdn.com.br/produto.jpg",
+                "text": "R$ 199,90 R$ 129,90 no Pix 35% de desconto",
                 "prices": ["R$ 199,90", "R$ 129,90"],
                 "discounts": ["35% de desconto"],
             }
@@ -19,6 +24,22 @@ class FakePage:
 
 
 class MagaluAutomationAgentTests(unittest.TestCase):
+    def test_ignores_installment_value_when_reading_magalu_price(self):
+        current, old = extract_magalu_prices(
+            "R$ 4.475,00 10x de R$ 199,90 sem juros ou R$ 1.899,05 no Pix",
+            5,
+        )
+        self.assertEqual(current, 1899.05)
+        self.assertEqual(old, 4475.00)
+
+    def test_ignores_compact_installment_value(self):
+        current, old = extract_magalu_prices(
+            "R$ 4.475,00 ou R$ 1.999,00 no Pix Cartao 10xR$ 199,90",
+            5,
+        )
+        self.assertEqual(current, 1999.00)
+        self.assertEqual(old, 4475.00)
+
     def test_accepts_only_product_from_influencer_store(self):
         self.assertTrue(
             is_influencer_product_url(
