@@ -47,6 +47,13 @@ class PublicPagesTests(unittest.TestCase):
             self.assertIn(heading, page)
             self.assertIn("admin-dashboard.js", page)
 
+    def test_settings_has_one_offer_target_for_every_store(self):
+        page = (FRONTEND_DIR / "admin-settings.html").read_text(encoding="utf-8")
+        script = (FRONTEND_DIR / "admin-dashboard.js").read_text(encoding="utf-8")
+        self.assertIn('id="offersPerStore"', page)
+        self.assertIn("offersPerStore:", script)
+        self.assertIn("Meta:", script)
+
     def test_admin_status_has_store_dashboard(self):
         page = (FRONTEND_DIR / "admin.html").read_text(encoding="utf-8")
         styles = (FRONTEND_DIR / "admin.css").read_text(encoding="utf-8")

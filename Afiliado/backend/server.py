@@ -34,6 +34,7 @@ MAGALU_AGENT_PROVIDER = "magalu_automation_agent"
 MAGALU_JOB_PROVIDER = "magalu_automation_job"
 SNAPSHOT_CLEANUP_SOURCES = {"shopee_open_api"}
 DEFAULT_BOT_SETTINGS = {
+    "offersPerStore": 30,
     "minimumDiscount": 15,
     "minimumRating": 4.0,
     "minimumSales": 10,
@@ -115,6 +116,7 @@ def coerce_bool(value: object) -> bool:
 def normalize_bot_settings(payload: dict | None = None) -> dict:
     source = {**DEFAULT_BOT_SETTINGS, **(payload or {})}
     return {
+        "offersPerStore": max(1, min(int(source["offersPerStore"]), 100)),
         "minimumDiscount": max(1, min(int(source["minimumDiscount"]), 90)),
         "minimumRating": max(0.0, min(float(source["minimumRating"]), 5.0)),
         "minimumSales": max(0, min(int(source["minimumSales"]), 1_000_000)),
@@ -138,6 +140,7 @@ def write_bot_settings(payload: dict) -> dict:
 
 
 def apply_bot_settings(settings: dict) -> None:
+    os.environ["BOT_OFFERS_PER_STORE"] = str(settings["offersPerStore"])
     os.environ["SHOPEE_API_MAX_PAGES"] = str(settings["maxPages"])
     os.environ["MERCADOLIVRE_MAX_PAGES"] = str(settings["mercadoLivreMaxPages"])
     os.environ["BOT_MIN_RATING"] = str(settings["minimumRating"])
@@ -382,16 +385,18 @@ def write_automation_agent_status(payload: dict) -> dict:
     return status
 
 
-def queue_automation_job() -> dict:
+def queue_automation_job(target: int = 30) -> dict:
+    target = max(1, min(int(target), 100))
     candidates = [
         candidate
         for candidate in read_deal_candidates()
         if candidate.get("store") == "Mercado Livre" and candidate.get("productUrl")
-    ]
+    ][:target]
     job = {
         "id": secrets.token_hex(8),
         "state": "pending" if candidates else "empty",
         "candidateIds": [str(candidate["id"]) for candidate in candidates],
+        "target": target,
         "createdAt": datetime.now(timezone.utc).isoformat(),
     }
     offer_storage.set_integration(AUTOMATION_JOB_PROVIDER, job)
@@ -452,10 +457,12 @@ def write_amazon_agent_status(payload: dict) -> dict:
     return status
 
 
-def queue_amazon_job() -> dict:
+def queue_amazon_job(target: int = 30) -> dict:
+    target = max(1, min(int(target), 100))
     job = {
         "id": secrets.token_hex(8),
         "state": "pending",
+        "target": target,
         "createdAt": datetime.now(timezone.utc).isoformat(),
     }
     offer_storage.set_integration(AMAZON_JOB_PROVIDER, job)
@@ -508,10 +515,12 @@ def write_magalu_agent_status(payload: dict) -> dict:
     return status
 
 
-def queue_magalu_job() -> dict:
+def queue_magalu_job(target: int = 30) -> dict:
+    target = max(1, min(int(target), 100))
     job = {
         "id": secrets.token_hex(8),
         "state": "pending",
+        "target": target,
         "createdAt": datetime.now(timezone.utc).isoformat(),
     }
     offer_storage.set_integration(MAGALU_JOB_PROVIDER, job)
@@ -1113,9 +1122,10 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 return
             result = run_bot_once()
             if result.get("ok"):
-                job = queue_automation_job()
-                amazon_job = queue_amazon_job()
-                magalu_job = queue_magalu_job()
+                target = int(result.get("settings", {}).get("offersPerStore") or 30)
+                job = queue_automation_job(target)
+                amazon_job = queue_amazon_job(target)
+                magalu_job = queue_magalu_job(target)
                 result["automationJob"] = {
                     "id": job["id"],
                     "state": job["state"],
@@ -1129,6 +1139,7 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                     "id": magalu_job["id"],
                     "state": magalu_job["state"],
                 }
+                result["offersPerStore"] = target
             write_json(self, result, 200 if result.get("ok") else 502)
             return
 

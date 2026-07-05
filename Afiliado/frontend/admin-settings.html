@@ -12,6 +12,7 @@
       <section class="admin-intro"><div><p class="admin-kicker">Painel administrativo</p><h1>Configuracoes do bot</h1><p>Controle a qualidade e a publicacao automatica.</p></div></section>
       <section class="import-panel settings-panel">
         <form id="botSettingsForm" class="settings-grid">
+          <label>Ofertas por loja em cada execucao<input id="offersPerStore" type="number" min="1" max="100" required></label>
           <label>Desconto minimo (%)<input id="minimumDiscount" type="number" min="1" max="90" required></label>
           <label>Avaliacao minima<input id="minimumRating" type="number" min="0" max="5" step="0.1" required></label>
           <label>Vendas minimas<input id="minimumSales" type="number" min="0" required></label>
@@ -24,6 +25,6 @@
         </form><p class="import-status" id="settingsStatus"></p>
       </section>
     </main>
-    <script>window.MegaTheme.init();</script><script src="admin-dashboard.js?v=20260705-analytics-1"></script>
+    <script>window.MegaTheme.init();</script><script src="admin-dashboard.js?v=20260705-balanced-stores-1"></script>
   </body>
 </html>

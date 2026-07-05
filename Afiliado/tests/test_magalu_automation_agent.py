@@ -61,20 +61,21 @@ class MagaluAutomationAgentTests(unittest.TestCase):
         def fake_api_request(_opener, method, url, payload=None):
             calls.append((method, url, payload))
             if url.endswith("/api/magalu-automation-agent/work"):
-                return {"job": {"id": "magalu-job-1", "state": "processing"}}
+                return {"job": {"id": "magalu-job-1", "state": "processing", "target": 7}}
             return {"ok": True}
 
         with (
             patch.object(agent, "authenticated_opener", return_value=object()),
             patch.object(agent, "api_request", side_effect=fake_api_request),
             patch.object(agent, "ensure_browser"),
-            patch.object(agent, "discover_offers", return_value=[offer]),
+            patch.object(agent, "discover_offers", return_value=[offer]) as discover,
             patch.object(agent, "publish_to_site", return_value=["publicado"]),
             patch.object(agent, "write_csv"),
         ):
             processed, failed = agent.process_job(config)
 
         self.assertEqual((processed, failed), (1, 0))
+        self.assertEqual(discover.call_args.args[2], 7)
         completed = next(payload for _, url, payload in calls if url.endswith("/job/complete"))
         self.assertEqual(completed["jobId"], "magalu-job-1")
 

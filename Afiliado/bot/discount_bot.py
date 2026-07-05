@@ -896,6 +896,7 @@ def load_real_source_products(path: Path) -> list[dict]:
 
     if credential("SHOPEE_APP_ID") and credential("SHOPEE_API_SECRET"):
         try:
+            target = max(1, min(int(credential("BOT_OFFERS_PER_STORE", "30")), 100))
             max_pages = max(1, min(int(credential("SHOPEE_API_MAX_PAGES", "2")), 50))
             shopee_products = fetch_shopee_api_products(
                 max_pages=max_pages,
@@ -903,7 +904,7 @@ def load_real_source_products(path: Path) -> list[dict]:
                 min_rating=float(credential("BOT_MIN_RATING", "4")),
                 min_sales=int(credential("BOT_MIN_SALES", "10")),
                 min_commission_rate=float(credential("BOT_MIN_COMMISSION_RATE", "0")),
-            )
+            )[:target]
             products.extend(shopee_products)
             record_source_status("Ofertas oficiais Shopee", "shopee_open_api", True, len(shopee_products))
         except (ShopeeApiError, TypeError, ValueError) as error:
@@ -933,8 +934,9 @@ def load_real_source_products(path: Path) -> list[dict]:
                         20,
                     ),
                 )
+                target = max(1, min(int(credential("BOT_OFFERS_PER_STORE", "30")), 100))
                 deals = fetch_mercadolivre_deals(
-                    int(source.get("limit") or max_pages * 48),
+                    max(target * 3, int(source.get("limit") or 0)),
                     max_pages=max_pages,
                 )
                 for deal in deals:
@@ -1128,7 +1130,24 @@ def generate_offers(
         json.dump(offers, file, ensure_ascii=False, indent=2)
 
     current_offers = load_existing_offers(db_path) if existing_offers is None else existing_offers
-    LAST_CANDIDATES[:] = filter_unpublished_candidates(LAST_CANDIDATES, current_offers)
+    all_candidates = [dict(candidate) for candidate in LAST_CANDIDATES]
+    unpublished = filter_unpublished_candidates(all_candidates, current_offers)
+    # O Mercado Livre precisa voltar ao agente em toda coleta para que preco e
+    # desconto sejam atualizados, inclusive quando o produto ja foi publicado.
+    mercado_livre_candidates = []
+    seen_mercado_livre = set()
+    for candidate in all_candidates:
+        if candidate.get("store") != "Mercado Livre":
+            continue
+        keys = product_identity_keys(candidate)
+        if not keys or keys & seen_mercado_livre:
+            continue
+        mercado_livre_candidates.append(candidate)
+        seen_mercado_livre.update(keys)
+    LAST_CANDIDATES[:] = [
+        *[candidate for candidate in unpublished if candidate.get("store") != "Mercado Livre"],
+        *mercado_livre_candidates,
+    ]
     write_offer_links(offers, links_output_path)
     write_candidate_links(LAST_CANDIDATES, candidate_links_output_path)
 
