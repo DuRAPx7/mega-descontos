@@ -104,6 +104,20 @@ class OfferStorage:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS analytics_events (
+                id TEXT PRIMARY KEY,
+                event_type TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                occurred_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS analytics_events_occurred_at "
+            "ON analytics_events (occurred_at)"
+        )
 
         placeholder = self._placeholder()
         migrated = connection.execute(
@@ -239,6 +253,34 @@ class OfferStorage:
         with self._lock, closing(self._connect()) as connection:
             rows = connection.execute(
                 "SELECT payload FROM discount_requests ORDER BY created_at DESC"
+            ).fetchall()
+        return self._decode_payload_rows(rows)
+
+    def create_analytics_event(self, event: dict) -> dict:
+        placeholder = self._placeholder()
+        serialized = json.dumps(event, ensure_ascii=False, separators=(",", ":"))
+        with self._lock, closing(self._connect()) as connection:
+            connection.execute(
+                "INSERT INTO analytics_events (id, event_type, payload, occurred_at) "
+                f"VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder})",
+                (
+                    str(event["id"]),
+                    str(event["type"]),
+                    serialized,
+                    str(event["occurredAt"]),
+                ),
+            )
+            connection.commit()
+        return event
+
+    def read_analytics_events(self, since: str, limit: int = 50_000) -> list[dict]:
+        placeholder = self._placeholder()
+        safe_limit = max(1, min(int(limit), 100_000))
+        with self._lock, closing(self._connect()) as connection:
+            rows = connection.execute(
+                "SELECT payload FROM analytics_events "
+                f"WHERE occurred_at >= {placeholder} ORDER BY occurred_at DESC LIMIT {safe_limit}",
+                (since,),
             ).fetchall()
         return self._decode_payload_rows(rows)
 

@@ -63,7 +63,7 @@ if %errorlevel% neq 0 (
 echo.
 echo Abrindo site, painel e arquivos de acompanhamento...
 start "" "%SITE_URL%"
-start "" "%SITE_URL%/admin-review.html"
+start "" "%SITE_URL%/admin.html"
 
 if exist "bot\produtos_monitorados.json" start "" notepad.exe "%CD%\bot\produtos_monitorados.json"
 if exist "bot\status.json" start "" notepad.exe "%CD%\bot\status.json"
@@ -73,7 +73,7 @@ if exist "bot\links_promocoes_potenciais.txt" start "" notepad.exe "%CD%\bot\lin
 echo.
 echo Tudo pronto.
 echo Site:   %SITE_URL%
-echo Revisao: %SITE_URL%/admin-review.html
+echo Painel: %SITE_URL%/admin.html
 echo.
 echo A janela minimizada do servidor deve permanecer aberta.
 pause

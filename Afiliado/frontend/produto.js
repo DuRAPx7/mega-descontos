@@ -1,11 +1,37 @@
 const moneyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const detail = document.querySelector("#productDetail");
 const productId = new URLSearchParams(window.location.search).get("id");
+const API_ANALYTICS_EVENTS_URL = "/api/analytics/events";
 
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+}
+
+function trackAnalytics(type, offer) {
+  const payload = JSON.stringify({
+    type,
+    offerId: String(offer.id),
+    title: offer.title,
+    category: offer.category,
+    store: offer.store,
+    path: window.location.pathname,
+    occurredAt: new Date().toISOString()
+  });
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon(
+      API_ANALYTICS_EVENTS_URL,
+      new Blob([payload], { type: "application/json" })
+    );
+  } else {
+    fetch(API_ANALYTICS_EVENTS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+      keepalive: true
+    }).catch(() => {});
+  }
 }
 
 function renderProduct(offer) {
@@ -34,6 +60,10 @@ function renderProduct(offer) {
       <p class="affiliate-notice">Voce sera direcionado para a loja. Este link pode gerar comissao para o Mega Descontos.</p>
     </div>
   `;
+  trackAnalytics("product_view", offer);
+  detail.querySelector(".product-buy-button").addEventListener("click", () => {
+    trackAnalytics("outbound_click", offer);
+  });
 }
 
 function renderNotFound(message) {

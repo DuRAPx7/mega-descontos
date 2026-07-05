@@ -90,6 +90,27 @@ class OfferStorageTests(unittest.TestCase):
             self.assertEqual(storage.create_discount_request(request), request)
             self.assertEqual(storage.read_discount_requests(), [request])
 
+    def test_persists_and_filters_analytics_events(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            storage = self.make_storage(Path(directory) / "offers.db")
+            storage.initialize([])
+            old_event = {
+                "id": "old",
+                "type": "page_view",
+                "occurredAt": "2026-06-01T12:00:00+00:00",
+            }
+            recent_event = {
+                "id": "recent",
+                "type": "offer_click",
+                "occurredAt": "2026-07-05T12:00:00+00:00",
+            }
+            storage.create_analytics_event(old_event)
+            storage.create_analytics_event(recent_event)
+            self.assertEqual(
+                storage.read_analytics_events("2026-07-01T00:00:00+00:00"),
+                [recent_event],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -2,6 +2,7 @@ let adminOffers = [];
 let reviewOffers = [];
 let discountRequests = [];
 let botSettings = {};
+let analyticsReport = null;
 
 const moneyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const page = document.body.dataset.adminPage;
@@ -256,6 +257,116 @@ async function loadSettings() {
   fillSettings();
 }
 
+function formatMetric(value) {
+  return new Intl.NumberFormat("pt-BR").format(Number(value || 0));
+}
+
+function renderChange(id, value, suffix = "%") {
+  const target = byId(id);
+  if (!target) return;
+  const number = Number(value || 0);
+  target.textContent = `${number >= 0 ? "↗" : "↘"} ${Math.abs(number).toLocaleString("pt-BR")}${suffix}`;
+  target.className = number >= 0 ? "positive" : "negative";
+}
+
+function renderTimeline(timeline) {
+  const target = byId("analyticsTimeline");
+  if (!target) return;
+  const values = timeline.flatMap((item) => [item.clicks, item.previousClicks]);
+  const maxValue = Math.max(1, ...values);
+  const width = 900;
+  const height = 270;
+  const paddingX = 42;
+  const paddingY = 26;
+  const plotWidth = width - paddingX * 2;
+  const plotHeight = height - paddingY * 2;
+  const point = (value, index) => {
+    const x = paddingX + (timeline.length <= 1 ? 0 : (index / (timeline.length - 1)) * plotWidth);
+    const y = height - paddingY - (Number(value || 0) / maxValue) * plotHeight;
+    return [x, y];
+  };
+  const currentPoints = timeline.map((item, index) => point(item.clicks, index));
+  const previousPoints = timeline.map((item, index) => point(item.previousClicks, index));
+  const currentPath = currentPoints.map(([x, y], index) => `${index ? "L" : "M"}${x},${y}`).join(" ");
+  const previousPath = previousPoints.map(([x, y], index) => `${index ? "L" : "M"}${x},${y}`).join(" ");
+  const areaPath = currentPoints.length
+    ? `${currentPath} L${currentPoints.at(-1)[0]},${height - paddingY} L${currentPoints[0][0]},${height - paddingY} Z`
+    : "";
+  const labelEvery = Math.max(1, Math.ceil(timeline.length / 6));
+  target.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Cliques ao longo do tempo">
+      <defs><linearGradient id="analyticsArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#20e66a" stop-opacity=".35"/><stop offset="1" stop-color="#20e66a" stop-opacity="0"/></linearGradient></defs>
+      ${[0, .25, .5, .75, 1].map((part) => `<line x1="${paddingX}" y1="${paddingY + plotHeight * part}" x2="${width - paddingX}" y2="${paddingY + plotHeight * part}" class="chart-grid-line"/>`).join("")}
+      <path d="${areaPath}" fill="url(#analyticsArea)"/>
+      <path d="${previousPath}" class="chart-previous-path"/>
+      <path d="${currentPath}" class="chart-current-path"/>
+      ${timeline.map((item, index) => index % labelEvery === 0 || index === timeline.length - 1 ? `<text x="${point(item.clicks, index)[0]}" y="${height - 5}" text-anchor="middle">${new Date(`${item.date}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</text>` : "").join("")}
+    </svg>
+  `;
+}
+
+const analyticsColors = ["#21c75b", "#2f8df4", "#8653df", "#f5a01d", "#71808f", "#ec4c49"];
+
+function renderDonut(targetId, legendId, items, totalId) {
+  const total = items.reduce((sum, item) => sum + Number(item.count || 0), 0);
+  const target = byId(targetId);
+  const legend = byId(legendId);
+  if (byId(totalId)) byId(totalId).textContent = formatMetric(total);
+  let progress = 0;
+  const stops = items.length ? items.map((item, index) => {
+    const start = progress;
+    progress += item.percent;
+    return `${analyticsColors[index % analyticsColors.length]} ${start}% ${progress}%`;
+  }) : ["#17232c 0 100%"];
+  target.style.background = `conic-gradient(${stops.join(",")})`;
+  legend.innerHTML = items.map((item, index) => `
+    <div><i style="background:${analyticsColors[index % analyticsColors.length]}"></i><span>${escapeHtml(item.name)}</span><b>${formatMetric(item.count)} (${item.percent.toLocaleString("pt-BR")}%)</b></div>
+  `).join("") || "<p>Aguardando os primeiros eventos.</p>";
+}
+
+function renderAnalytics(report) {
+  analyticsReport = report;
+  byId("analyticsClicks").textContent = formatMetric(report.totals.clicks);
+  byId("analyticsViews").textContent = formatMetric(report.totals.views);
+  byId("analyticsCtr").textContent = `${Number(report.totals.ctr).toLocaleString("pt-BR")}%`;
+  byId("analyticsConversions").textContent = formatMetric(report.totals.conversions);
+  renderChange("analyticsClicksChange", report.changes.clicks);
+  renderChange("analyticsViewsChange", report.changes.views);
+  renderChange("analyticsCtrChange", report.changes.ctr, " p.p.");
+  renderChange("analyticsConversionsChange", report.changes.conversions);
+  renderTimeline(report.timeline || []);
+  renderDonut("categoryDonut", "categoryLegend", report.categories || [], "categoryDonutTotal");
+  renderDonut("deviceDonut", "deviceLegend", report.devices || [], "deviceDonutTotal");
+
+  byId("topOffersList").innerHTML = (report.topOffers || []).map((offer, index) => `
+    <article><b>${index + 1}</b>${offer.image ? `<img src="${escapeHtml(offer.image)}" alt="">` : `<span class="analytics-image-placeholder">◇</span>`}<div><strong>${escapeHtml(offer.title)}</strong><small>${escapeHtml(offer.category)}</small></div><em>${formatMetric(offer.clicks)}</em></article>
+  `).join("") || "<p>Ainda não há cliques em ofertas neste período.</p>";
+
+  const maxStore = Math.max(1, ...(report.stores || []).map((store) => store.count));
+  byId("storeAnalyticsList").innerHTML = (report.stores || []).map((store, index) => `
+    <article><div><i style="background:${analyticsColors[index % analyticsColors.length]}"></i><strong>${escapeHtml(store.name)}</strong><b>${formatMetric(store.count)}</b></div><span><i style="width:${(store.count / maxStore) * 100}%;background:${analyticsColors[index % analyticsColors.length]}"></i></span></article>
+  `).join("") || "<p>Ainda não há cliques por loja neste período.</p>";
+  byId("analyticsStatus").textContent = `Atualizado em ${new Date(report.generatedAt).toLocaleString("pt-BR")}.`;
+}
+
+async function loadAnalytics() {
+  const days = Number(byId("analyticsPeriod")?.value || 30);
+  byId("analyticsStatus").textContent = "Carregando dados reais...";
+  const report = await api(`/api/analytics?days=${days}`);
+  renderAnalytics(report);
+}
+
+function exportAnalytics() {
+  if (!analyticsReport) return;
+  const rows = [["Data", "Cliques", "Periodo anterior"], ...(analyticsReport.timeline || []).map((item) => [item.date, item.clicks, item.previousClicks])];
+  const csv = rows.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(";")).join("\n");
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }));
+  link.download = `mega-descontos-analytics-${analyticsReport.periodDays}-dias.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
 async function saveSettings(event) {
   event.preventDefault();
   const settings = {
@@ -318,14 +429,19 @@ byId("logoutAdmin")?.addEventListener("click", () => fetch("/api/logout", { meth
 byId("adminSearch")?.addEventListener("input", renderPublishedOffers);
 byId("botSettingsForm")?.addEventListener("submit", saveSettings);
 byId("runBotNow")?.addEventListener("click", runBot);
+byId("analyticsPeriod")?.addEventListener("change", () => loadAnalytics().catch((error) => {
+  byId("analyticsStatus").textContent = error.message;
+}));
+byId("exportAnalytics")?.addEventListener("click", exportAnalytics);
 
 const loaders = {
   status: loadStatus,
   review: loadReviewOffers,
   offers: loadPublishedOffers,
-  settings: loadSettings
+  settings: loadSettings,
+  analytics: loadAnalytics
 };
 loaders[page]?.().catch((error) => {
-  const status = byId("runBotStatus") || byId("reviewStatus") || byId("publishedStatus") || byId("settingsStatus");
+  const status = byId("runBotStatus") || byId("reviewStatus") || byId("publishedStatus") || byId("settingsStatus") || byId("analyticsStatus");
   if (status) status.textContent = error.message;
 });

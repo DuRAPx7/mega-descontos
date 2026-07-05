@@ -30,7 +30,7 @@ class PublicPagesTests(unittest.TestCase):
     def test_admin_is_split_into_four_pages(self):
         expected = {
             "admin.html": "Status das lojas",
-            "admin-review.html": "Fila de revisao",
+            "admin-analytics.html": "Analytics",
             "admin-offers.html": "Ofertas publicadas",
             "admin-settings.html": "Configuracoes do bot",
         }
@@ -59,9 +59,18 @@ class PublicPagesTests(unittest.TestCase):
     def test_bot_shortcut_starts_site_and_opens_work_files(self):
         shortcut = (ROOT_DIR / "atalhos" / "rodar_bot.bat").read_text(encoding="utf-8")
         self.assertIn("run_bot_once", shortcut)
-        self.assertIn("/admin-review.html", shortcut)
+        self.assertIn("/admin.html", shortcut)
         self.assertIn("produtos_monitorados.json", shortcut)
         self.assertIn("status.json", shortcut)
+
+    def test_analytics_tracks_real_public_events(self):
+        analytics_page = (FRONTEND_DIR / "admin-analytics.html").read_text(encoding="utf-8")
+        home_script = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
+        product_script = (FRONTEND_DIR / "produto.js").read_text(encoding="utf-8")
+        self.assertIn('data-admin-page="analytics"', analytics_page)
+        self.assertIn('id="analyticsTimeline"', analytics_page)
+        self.assertIn("/api/analytics/events", home_script)
+        self.assertIn('"outbound_click"', product_script)
 
     def test_complete_automation_installer_configures_both_agents(self):
         installer = (ROOT_DIR / "atalhos" / "instalar_automacao_completa.bat").read_text(

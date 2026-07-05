@@ -2,6 +2,7 @@ const OFFERS_STORAGE_KEY = "mega_descontos_offers";
 const FAVORITES_STORAGE_KEY = "mega_descontos_favorites";
 const API_OFFERS_URL = "/api/offers";
 const API_DISCOUNT_REQUESTS_URL = "/api/discount-requests";
+const API_ANALYTICS_EVENTS_URL = "/api/analytics/events";
 
 let offers = [...(window.DEFAULT_OFFERS || [])];
 let favorites = loadFavorites();
@@ -49,6 +50,29 @@ function loadFavorites() {
 
 function isHttpPage() {
   return window.location.protocol === "http:" || window.location.protocol === "https:";
+}
+
+function trackAnalytics(type, details = {}) {
+  if (!isHttpPage()) return;
+  const payload = JSON.stringify({
+    type,
+    path: window.location.pathname,
+    occurredAt: new Date().toISOString(),
+    ...details
+  });
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon(
+      API_ANALYTICS_EVENTS_URL,
+      new Blob([payload], { type: "application/json" })
+    );
+    return;
+  }
+  fetch(API_ANALYTICS_EVENTS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: payload,
+    keepalive: true
+  }).catch(() => {});
 }
 
 function loadLocalOffersFallback() {
@@ -223,17 +247,17 @@ function renderOffers() {
           <button class="favorite-button ${isFavorite ? "active" : ""}" type="button" data-offer-id="${offer.id}" aria-label="Adicionar aos favoritos">
             ${isFavorite ? "Favorito" : "Salvar"}
           </button>
-          <a class="offer-image-link" href="${detailUrl}">
+          <a class="offer-image-link" href="${detailUrl}" data-analytics-offer="${offer.id}">
             <img src="${offer.image}" alt="${offer.title}" loading="lazy" onerror="this.style.visibility='hidden'">
           </a>
           <div class="offer-body">
-            <h3><a class="offer-title-link" href="${detailUrl}">${offer.title}</a></h3>
+            <h3><a class="offer-title-link" href="${detailUrl}" data-analytics-offer="${offer.id}">${offer.title}</a></h3>
             <span class="store-name">${offer.store}</span>
             <div>
               <span class="current-price">${moneyFormatter.format(offer.currentPrice)}</span>
               <span class="old-price">${moneyFormatter.format(offer.oldPrice)}</span>
             </div>
-            <a href="${detailUrl}">Ver detalhes</a>
+            <a href="${detailUrl}" data-analytics-offer="${offer.id}">Ver detalhes</a>
           </div>
         </article>
       `;
@@ -243,6 +267,19 @@ function renderOffers() {
   document.querySelectorAll(".favorite-button").forEach((button) => {
     button.addEventListener("click", () => {
       toggleFavorite(button.dataset.offerId);
+    });
+  });
+
+  document.querySelectorAll("[data-analytics-offer]").forEach((link) => {
+    link.addEventListener("click", () => {
+      const offer = offers.find((item) => String(item.id) === String(link.dataset.analyticsOffer));
+      if (!offer) return;
+      trackAnalytics("offer_click", {
+        offerId: String(offer.id),
+        title: offer.title,
+        category: offer.category,
+        store: offer.store
+      });
     });
   });
 
@@ -378,4 +415,5 @@ applyInitialFilters();
 renderCategories();
 renderOffers();
 loadOffersFromApi();
+trackAnalytics("page_view");
 setInterval(loadOffersFromApi, 30000);
