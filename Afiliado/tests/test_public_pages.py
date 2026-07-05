@@ -54,3 +54,11 @@ class PublicPagesTests(unittest.TestCase):
         self.assertIn("iniciar_agente_amazon.bat", installer)
         self.assertIn("MegaDescontosMercadoLivre.cmd", installer)
         self.assertIn("MegaDescontosAmazon.cmd", installer)
+        self.assertIn("%USERPROFILE%\\.cache\\codex-runtimes", installer)
+        self.assertNotIn("where py", installer)
+
+    def test_agents_load_bundled_windows_runtime_dlls(self):
+        for filename in ("mercadolivre_automation_agent.py", "amazon_automation_agent.py"):
+            agent = (ROOT_DIR / "bot" / filename).read_text(encoding="utf-8")
+            self.assertIn("os.add_dll_directory", agent)
+            self.assertIn("libheif/bin", agent)

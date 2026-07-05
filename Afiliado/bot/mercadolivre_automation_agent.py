@@ -9,6 +9,16 @@ from pathlib import Path
 from urllib.parse import urljoin
 from urllib.request import HTTPCookieProcessor, build_opener, urlopen
 
+
+DLL_DIRECTORY_HANDLE = None
+if os.name == "nt" and hasattr(os, "add_dll_directory"):
+    bundled_dlls = (
+        Path.home()
+        / ".cache/codex-runtimes/codex-primary-runtime/dependencies/native/libheif/libheif/bin"
+    )
+    if bundled_dlls.exists():
+        DLL_DIRECTORY_HANDLE = os.add_dll_directory(str(bundled_dlls))
+
 try:
     from bot.mercadolivre_linkbuilder_bot import (
         LINKBUILDER_URL,
