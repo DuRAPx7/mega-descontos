@@ -125,14 +125,15 @@ function sourceBelongsToStore(source, store) {
   const terms = {
     ml: ["mercadolivre", "mercado livre"],
     shopee: ["shopee"],
-    amazon: ["amazon"]
+    amazon: ["amazon"],
+    magalu: ["magalu", "magazinevoce"]
   };
   return terms[store].some((term) => value.includes(term));
 }
 
 function summarizeStore(status, offers, store, agentStatus = null) {
   const sources = (status.sources || []).filter((source) => sourceBelongsToStore(source, store));
-  const storeNames = { ml: "Mercado Livre", shopee: "Shopee", amazon: "Amazon" };
+  const storeNames = { ml: "Mercado Livre", shopee: "Shopee", amazon: "Amazon", magalu: "Magalu" };
   const published = offers.filter((offer) => offer.store === storeNames[store]).length;
   const approvedFromRun = sources
     .filter((source) => source.ok)
@@ -163,12 +164,14 @@ function renderBotStatus(status, offers = [], agents = {}) {
   const mlSummary = summarizeStore(status, offers, "ml", agents.mercadoLivre);
   const shopeeSummary = summarizeStore(status, offers, "shopee");
   const amazonSummary = summarizeStore(status, offers, "amazon", agents.amazon);
+  const magaluSummary = summarizeStore(status, offers, "magalu", agents.magalu);
   setStoreDashboard("ml", mlSummary, agentIsOnline(agents.mercadoLivre || {}));
   setStoreDashboard("shopee", shopeeSummary, !sources.some((source) => sourceBelongsToStore(source, "shopee") && !source.ok));
   setStoreDashboard("amazon", amazonSummary, agentIsOnline(agents.amazon || {}));
+  setStoreDashboard("magalu", magaluSummary, agentIsOnline(agents.magalu || {}));
 
-  const approved = mlSummary.approved + shopeeSummary.approved + amazonSummary.approved;
-  const failures = mlSummary.failed + shopeeSummary.failed + amazonSummary.failed;
+  const approved = mlSummary.approved + shopeeSummary.approved + amazonSummary.approved + magaluSummary.approved;
+  const failures = mlSummary.failed + shopeeSummary.failed + amazonSummary.failed + magaluSummary.failed;
   if (byId("dashboardTotalOffers")) byId("dashboardTotalOffers").textContent = offers.length;
   if (byId("dashboardApproved")) byId("dashboardApproved").textContent = approved;
   if (byId("dashboardFailures")) byId("dashboardFailures").textContent = failures;
@@ -182,12 +185,13 @@ function renderBotStatus(status, offers = [], agents = {}) {
 }
 
 async function loadStatus() {
-  const [health, status, offers, agent, amazonAgent] = await Promise.all([
+  const [health, status, offers, agent, amazonAgent, magaluAgent] = await Promise.all([
     api("/healthz"),
     api("/api/bot-status"),
     api("/api/offers"),
     api("/api/automation-agent/status"),
-    api("/api/amazon-automation-agent/status")
+    api("/api/amazon-automation-agent/status"),
+    api("/api/magalu-automation-agent/status")
   ]);
   byId("storageStatus").textContent = health.persistent ? "Banco persistente" : "Banco temporario";
   byId("storageStatus").className = `status-pill ${health.persistent ? "ok" : "error"}`;
@@ -195,13 +199,16 @@ async function loadStatus() {
   byId("adminTotalOffers").textContent = publishedOffers.length;
   renderBotStatus(status, publishedOffers, {
     mercadoLivre: agent.status || {},
-    amazon: amazonAgent.status || {}
+    amazon: amazonAgent.status || {},
+    magalu: magaluAgent.status || {}
   });
   renderAutomationAgentStatus(agent.status || {}, "automationAgentState", "automationAgentMessage", "Mercado Livre", "automationAgentTime");
   renderAutomationAgentStatus(amazonAgent.status || {}, "amazonAgentState", "amazonAgentMessage", "Amazon", "amazonAgentTime");
+  renderAutomationAgentStatus(magaluAgent.status || {}, "magaluAgentState", "magaluAgentMessage", "Magalu", "magaluAgentTime");
   return {
     mercadoLivre: agent.status || {},
-    amazon: amazonAgent.status || {}
+    amazon: amazonAgent.status || {},
+    magalu: magaluAgent.status || {}
   };
 }
 
@@ -409,12 +416,16 @@ async function runBot() {
     if (payload.amazonAutomationJob?.state === "pending" && agentIsOnline(agents.amazon)) {
       waits.push(waitForAutomationAgent(startedAt, "/api/amazon-automation-agent/status", "amazonAgentState", "amazonAgentMessage", "Amazon"));
     }
+    if (payload.magaluAutomationJob?.state === "pending" && agentIsOnline(agents.magalu)) {
+      waits.push(waitForAutomationAgent(startedAt, "/api/magalu-automation-agent/status", "magaluAgentState", "magaluAgentMessage", "Magalu"));
+    }
     const completedAgents = await Promise.all(waits);
     const localProcessed = completedAgents.reduce((total, agent) => total + Number(agent.processed || 0), 0);
     const localFailed = completedAgents.reduce((total, agent) => total + Number(agent.failed || 0), 0);
     const waiting = [];
     if ((payload.automationJob?.total || 0) > 0 && !agentIsOnline(agents.mercadoLivre)) waiting.push("Mercado Livre");
     if (payload.amazonAutomationJob?.state === "pending" && !agentIsOnline(agents.amazon)) waiting.push("Amazon");
+    if (payload.magaluAutomationJob?.state === "pending" && !agentIsOnline(agents.magalu)) waiting.push("Magalu");
     byId("runBotStatus").textContent = `${payload.autoPublished || 0} ofertas da Shopee e ${localProcessed} ofertas dos agentes publicadas; ${localFailed} falharam e ${removed} antigas foram removidas.${waiting.length ? ` Aguardando agente: ${waiting.join(" e ")}.` : ""}`;
     await loadStatus();
   } catch (error) {

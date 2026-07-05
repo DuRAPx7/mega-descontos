@@ -7,8 +7,10 @@ set "PYTHON_EXE="
 set "STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 set "ML_LAUNCHER=%STARTUP%\MegaDescontosMercadoLivre.cmd"
 set "AMAZON_LAUNCHER=%STARTUP%\MegaDescontosAmazon.cmd"
+set "MAGALU_LAUNCHER=%STARTUP%\MegaDescontosMagalu.cmd"
 set "ML_AGENT=%CD%\atalhos\iniciar_agente_mercado_livre.bat"
 set "AMAZON_AGENT=%CD%\atalhos\iniciar_agente_amazon.bat"
+set "MAGALU_AGENT=%CD%\atalhos\iniciar_agente_magalu.bat"
 
 echo.
 echo ==================================================
@@ -54,6 +56,13 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+"%PYTHON_EXE%" bot\magalu_automation_agent.py --configure
+if %errorlevel% neq 0 (
+  echo A configuracao do Magalu nao foi concluida.
+  pause
+  exit /b 1
+)
+
 if not exist "%STARTUP%" mkdir "%STARTUP%"
 
 > "%ML_LAUNCHER%" echo @echo off
@@ -62,10 +71,14 @@ if not exist "%STARTUP%" mkdir "%STARTUP%"
 > "%AMAZON_LAUNCHER%" echo @echo off
 >> "%AMAZON_LAUNCHER%" echo start "Mega Descontos - Amazon" /min cmd.exe /c call "%AMAZON_AGENT%"
 
+> "%MAGALU_LAUNCHER%" echo @echo off
+>> "%MAGALU_LAUNCHER%" echo start "Mega Descontos - Magalu" /min cmd.exe /c call "%MAGALU_AGENT%"
+
 echo.
 echo Iniciando os agentes agora...
 start "Mega Descontos - Mercado Livre" /min cmd.exe /c call "%ML_AGENT%"
 start "Mega Descontos - Amazon" /min cmd.exe /c call "%AMAZON_AGENT%"
+start "Mega Descontos - Magalu" /min cmd.exe /c call "%MAGALU_AGENT%"
 
 echo.
 echo Configuracao concluida.
