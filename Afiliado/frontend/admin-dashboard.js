@@ -205,8 +205,16 @@ async function loadStatus() {
 }
 
 function agentIsOnline(status) {
-  const updatedAt = status.updatedAt ? new Date(status.updatedAt).getTime() : 0;
-  return Boolean(updatedAt && Date.now() - updatedAt < 70000);
+  if (!status.updatedAt) return false;
+  const parsedTimestamp = new Date(status.updatedAt).getTime();
+  const localWallClock = new Date(
+    String(status.updatedAt).replace(/(?:Z|[+-]\d{2}:\d{2})$/, "")
+  ).getTime();
+  const freshestAge = Math.min(
+    Math.abs(Date.now() - parsedTimestamp),
+    Math.abs(Date.now() - localWallClock)
+  );
+  return Number.isFinite(freshestAge) && freshestAge < 70000;
 }
 
 function renderAutomationAgentStatus(status, stateId, messageId, store, timeId = "") {

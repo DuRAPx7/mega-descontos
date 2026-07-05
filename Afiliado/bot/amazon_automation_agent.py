@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -123,6 +124,7 @@ def update_status(opener, config: dict, state: str, message: str, processed: int
             "message": message,
             "processed": processed,
             "failed": failed,
+            "clientUpdatedAt": datetime.now(timezone.utc).isoformat(),
         },
     )
 
