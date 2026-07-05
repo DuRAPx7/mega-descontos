@@ -43,6 +43,47 @@ def product_code(value: str) -> str:
     return match.group(1).lower() if match else ""
 
 
+def normalize_store_section_url(value: str, store_url: str) -> str:
+    try:
+        parsed = urlparse(value)
+        store = urlparse(store_url)
+    except ValueError:
+        return ""
+    store_parts = [part.lower() for part in store.path.split("/") if part]
+    value_parts = [part.lower() for part in parsed.path.split("/") if part]
+    if (
+        parsed.scheme != "https"
+        or (parsed.hostname or "").lower() != (store.hostname or "").lower()
+        or not store_parts
+        or not value_parts
+        or value_parts[0] != store_parts[0]
+        or "/p/" in parsed.path.lower()
+        or parsed.path.rstrip("/") == store.path.rstrip("/")
+    ):
+        return ""
+    ignored = ("/blog/", "/cadastro/", "/login/", "/sacola/", "/atendimento/")
+    if any(term in parsed.path.lower() for term in ignored):
+        return ""
+    return f"https://{parsed.netloc}{parsed.path}"
+
+
+def collect_store_section_urls(page, store_url: str, limit: int = 16) -> list[str]:
+    links = page.evaluate(
+        "() => [...document.querySelectorAll('a[href]')].map((anchor) => anchor.href)"
+    )
+    sections = []
+    seen = set()
+    for link in links:
+        normalized = normalize_store_section_url(str(link or ""), store_url)
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        sections.append(normalized)
+        if len(sections) >= limit:
+            break
+    return sections
+
+
 def extract_magalu_prices(text: str, discount: int | None = None) -> tuple[float | None, float | None]:
     normalized = re.sub(r"\s+", " ", str(text or "").replace("\xa0", " ")).strip()
     if not normalized:
@@ -167,17 +208,23 @@ def discover_offers(store_url: str, cdp_url: str, limit: int, scrolls: int) -> l
             page = context.new_page()
         page.goto(store_url, wait_until="domcontentloaded", timeout=60_000)
         page.wait_for_timeout(2_000)
+        source_urls = [store_url, *collect_store_section_urls(page, store_url)]
         offers = []
         seen = set()
-        for _ in range(max(1, scrolls)):
-            for offer in collect_offers_from_page(page, limit - len(offers)):
-                if offer["sourceProductId"] not in seen:
-                    seen.add(offer["sourceProductId"])
-                    offers.append(offer)
-            if len(offers) >= limit:
-                break
-            page.mouse.wheel(0, 1800)
-            page.wait_for_timeout(1_000)
+        scrolls_per_section = max(2, min(int(scrolls), 5))
+        for source_url in source_urls:
+            if page.url.rstrip("/") != source_url.rstrip("/"):
+                page.goto(source_url, wait_until="domcontentloaded", timeout=60_000)
+                page.wait_for_timeout(1_500)
+            for _ in range(scrolls_per_section):
+                for offer in collect_offers_from_page(page, limit - len(offers)):
+                    if offer["sourceProductId"] not in seen:
+                        seen.add(offer["sourceProductId"])
+                        offers.append(offer)
+                if len(offers) >= limit:
+                    return offers
+                page.mouse.wheel(0, 1800)
+                page.wait_for_timeout(800)
         return offers
     finally:
         playwright.stop()

@@ -32,9 +32,11 @@ AMAZON_AGENT_PROVIDER = "amazon_automation_agent"
 AMAZON_JOB_PROVIDER = "amazon_automation_job"
 MAGALU_AGENT_PROVIDER = "magalu_automation_agent"
 MAGALU_JOB_PROVIDER = "magalu_automation_job"
+OFFERS_PER_STORE = 50
+AUTOMATION_TERMINAL_STATES = {"completed", "failed", "empty"}
 SNAPSHOT_CLEANUP_SOURCES = {"shopee_open_api"}
 DEFAULT_BOT_SETTINGS = {
-    "offersPerStore": 30,
+    "offersPerStore": OFFERS_PER_STORE,
     "minimumDiscount": 15,
     "minimumRating": 4.0,
     "minimumSales": 10,
@@ -116,7 +118,7 @@ def coerce_bool(value: object) -> bool:
 def normalize_bot_settings(payload: dict | None = None) -> dict:
     source = {**DEFAULT_BOT_SETTINGS, **(payload or {})}
     return {
-        "offersPerStore": max(1, min(int(source["offersPerStore"]), 100)),
+        "offersPerStore": OFFERS_PER_STORE,
         "minimumDiscount": max(1, min(int(source["minimumDiscount"]), 90)),
         "minimumRating": max(0.0, min(float(source["minimumRating"]), 5.0)),
         "minimumSales": max(0, min(int(source["minimumSales"]), 1_000_000)),
@@ -385,8 +387,8 @@ def write_automation_agent_status(payload: dict) -> dict:
     return status
 
 
-def queue_automation_job(target: int = 30) -> dict:
-    target = max(1, min(int(target), 100))
+def queue_automation_job(target: int = OFFERS_PER_STORE) -> dict:
+    target = OFFERS_PER_STORE
     candidates = [
         candidate
         for candidate in read_deal_candidates()
@@ -434,6 +436,7 @@ def finish_automation_job(job_id: str, candidate_ids: list[object], state: str =
         "finishedAt": datetime.now(timezone.utc).isoformat(),
     }
     offer_storage.set_integration(AUTOMATION_JOB_PROVIDER, job)
+    activate_waiting_job(AMAZON_JOB_PROVIDER)
     return job
 
 
@@ -457,11 +460,11 @@ def write_amazon_agent_status(payload: dict) -> dict:
     return status
 
 
-def queue_amazon_job(target: int = 30) -> dict:
-    target = max(1, min(int(target), 100))
+def queue_amazon_job(target: int = OFFERS_PER_STORE, state: str = "pending") -> dict:
+    target = OFFERS_PER_STORE
     job = {
         "id": secrets.token_hex(8),
-        "state": "pending",
+        "state": state if state in {"pending", "waiting"} else "waiting",
         "target": target,
         "createdAt": datetime.now(timezone.utc).isoformat(),
     }
@@ -492,6 +495,7 @@ def finish_amazon_job(job_id: str, state: str = "completed") -> dict:
         "finishedAt": datetime.now(timezone.utc).isoformat(),
     }
     offer_storage.set_integration(AMAZON_JOB_PROVIDER, job)
+    activate_waiting_job(MAGALU_JOB_PROVIDER)
     return job
 
 
@@ -515,11 +519,11 @@ def write_magalu_agent_status(payload: dict) -> dict:
     return status
 
 
-def queue_magalu_job(target: int = 30) -> dict:
-    target = max(1, min(int(target), 100))
+def queue_magalu_job(target: int = OFFERS_PER_STORE, state: str = "waiting") -> dict:
+    target = OFFERS_PER_STORE
     job = {
         "id": secrets.token_hex(8),
-        "state": "pending",
+        "state": state if state in {"pending", "waiting"} else "waiting",
         "target": target,
         "createdAt": datetime.now(timezone.utc).isoformat(),
     }
@@ -551,6 +555,52 @@ def finish_magalu_job(job_id: str, state: str = "completed") -> dict:
     }
     offer_storage.set_integration(MAGALU_JOB_PROVIDER, job)
     return job
+
+
+def activate_waiting_job(provider: str) -> dict:
+    job = offer_storage.get_integration(provider) or {}
+    if job.get("state") != "waiting":
+        return job
+    job = {
+        **job,
+        "state": "pending",
+        "activatedAt": datetime.now(timezone.utc).isoformat(),
+    }
+    offer_storage.set_integration(provider, job)
+    return job
+
+
+def read_automation_sequence_status() -> dict:
+    jobs = {
+        "mercadoLivre": offer_storage.get_integration(AUTOMATION_JOB_PROVIDER) or {},
+        "amazon": offer_storage.get_integration(AMAZON_JOB_PROVIDER) or {},
+        "magalu": offer_storage.get_integration(MAGALU_JOB_PROVIDER) or {},
+    }
+    active = next(
+        (
+            store
+            for store in ("mercadoLivre", "amazon", "magalu")
+            if jobs[store].get("state") in {"pending", "processing"}
+        ),
+        "",
+    )
+    complete = bool(jobs["mercadoLivre"]) and all(
+        job.get("state") in AUTOMATION_TERMINAL_STATES for job in jobs.values()
+    )
+    statuses = {
+        "mercadoLivre": read_automation_agent_status(),
+        "amazon": read_amazon_agent_status(),
+        "magalu": read_magalu_agent_status(),
+    }
+    return {
+        "target": OFFERS_PER_STORE,
+        "active": active,
+        "complete": complete,
+        "jobs": jobs,
+        "agents": statuses,
+        "processed": sum(int(status.get("processed") or 0) for status in statuses.values()),
+        "failed": sum(int(status.get("failed") or 0) for status in statuses.values()),
+    }
 
 
 def read_deal_candidates() -> list[dict]:
@@ -956,6 +1006,13 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
             write_json(self, {"job": claim_magalu_job()})
             return
 
+        if parsed.path == "/api/automation-sequence/status":
+            if not is_authenticated(self):
+                write_json(self, {"error": "Nao autorizado."}, 401)
+                return
+            write_json(self, read_automation_sequence_status())
+            return
+
         if parsed.path == "/api/review-offers":
             if not is_authenticated(self):
                 write_json(self, {"error": "Nao autorizado."}, 401)
@@ -1122,10 +1179,12 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                 return
             result = run_bot_once()
             if result.get("ok"):
-                target = int(result.get("settings", {}).get("offersPerStore") or 30)
+                target = OFFERS_PER_STORE
+                magalu_job = queue_magalu_job(target, "waiting")
+                amazon_job = queue_amazon_job(target, "waiting")
                 job = queue_automation_job(target)
-                amazon_job = queue_amazon_job(target)
-                magalu_job = queue_magalu_job(target)
+                if job["state"] == "empty":
+                    amazon_job = activate_waiting_job(AMAZON_JOB_PROVIDER)
                 result["automationJob"] = {
                     "id": job["id"],
                     "state": job["state"],

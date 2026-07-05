@@ -4,6 +4,7 @@ from unittest.mock import patch
 from bot import magalu_automation_agent as agent
 from bot.magalu_discovery_bot import (
     collect_offers_from_page,
+    normalize_store_section_url,
     extract_magalu_prices,
     is_influencer_product_url,
 )
@@ -24,6 +25,30 @@ class FakePage:
 
 
 class MagaluAutomationAgentTests(unittest.TestCase):
+    def test_accepts_only_sections_from_the_same_influencer_store(self):
+        store = "https://www.magazinevoce.com.br/minhaloja/"
+        self.assertEqual(
+            normalize_store_section_url(
+                "https://www.magazinevoce.com.br/minhaloja/mercado/l/me/?page=2",
+                store,
+            ),
+            "https://www.magazinevoce.com.br/minhaloja/mercado/l/me/",
+        )
+        self.assertEqual(
+            normalize_store_section_url(
+                "https://www.magazinevoce.com.br/outraloja/mercado/l/me/",
+                store,
+            ),
+            "",
+        )
+        self.assertEqual(
+            normalize_store_section_url(
+                "https://www.magazinevoce.com.br/minhaloja/produto/p/abc123/",
+                store,
+            ),
+            "",
+        )
+
     def test_ignores_installment_value_when_reading_magalu_price(self):
         current, old = extract_magalu_prices(
             "R$ 4.475,00 10x de R$ 199,90 sem juros ou R$ 1.899,05 no Pix",
