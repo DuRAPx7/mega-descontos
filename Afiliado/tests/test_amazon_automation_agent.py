@@ -30,7 +30,7 @@ class AmazonAutomationAgentTests(unittest.TestCase):
         def fake_api_request(_opener, method, url, payload=None):
             calls.append((method, url, payload))
             if url.endswith("/api/amazon-automation-agent/work"):
-                return {"job": {"id": "amazon-job-1", "state": "processing"}}
+                return {"job": {"id": "amazon-job-1", "state": "processing", "target": 7}}
             return {"ok": True}
 
         with (
@@ -46,6 +46,7 @@ class AmazonAutomationAgentTests(unittest.TestCase):
 
         self.assertEqual((processed, failed), (1, 0))
         self.assertEqual(discover.call_args.args[2], "minhatag-20")
+        self.assertEqual(discover.call_args.args[3], 7)
         completed = next(payload for method, url, payload in calls if url.endswith("/job/complete"))
         self.assertEqual(completed["jobId"], "amazon-job-1")
 

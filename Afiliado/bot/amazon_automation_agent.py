@@ -145,7 +145,7 @@ def process_job(config: dict) -> tuple[int, int]:
         read_source_urls(DEFAULT_SOURCES),
         cdp_url,
         str(config.get("associateTag") or DEFAULT_ASSOCIATE_TAG),
-        max(1, int(config.get("limit") or 30)),
+        max(1, min(int(job.get("target") or config.get("limit") or 30), 100)),
         max(1, int(config.get("scrolls") or 8)),
     )
     statuses = publish_to_site(

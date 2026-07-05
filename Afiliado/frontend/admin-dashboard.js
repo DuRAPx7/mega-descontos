@@ -377,6 +377,7 @@ function exportAnalytics() {
 async function saveSettings(event) {
   event.preventDefault();
   const settings = {
+    offersPerStore: Number(byId("offersPerStore").value),
     minimumDiscount: Number(byId("minimumDiscount").value),
     minimumRating: Number(byId("minimumRating").value),
     minimumSales: Number(byId("minimumSales").value),
@@ -405,9 +406,10 @@ async function runBot() {
   try {
     const payload = await api("/api/run-bot", { method: "POST" });
     const removed = (payload.cleanup?.publishedRemoved || 0) + (payload.cleanup?.reviewRemoved || 0);
+    const target = payload.offersPerStore || payload.settings?.offersPerStore || 30;
     const shopee = payload.storeSummary?.shopee || {};
     const mercadoLivre = payload.storeSummary?.mercadolivre || {};
-    byId("runBotStatus").textContent = `Shopee: ${shopee.found || 0} encontradas. Mercado Livre: ${mercadoLivre.found || 0} encontradas, ${mercadoLivre.candidates || 0} aguardando geracao dos links.`;
+    byId("runBotStatus").textContent = `Meta: ${target} ofertas por loja. Shopee: ${shopee.found || 0}. Mercado Livre: ${payload.automationJob?.total || 0}. Amazon e Magalu foram acionados com a mesma meta.`;
     const agents = await loadStatus();
     const waits = [];
     if ((payload.automationJob?.total || 0) > 0 && agentIsOnline(agents.mercadoLivre)) {

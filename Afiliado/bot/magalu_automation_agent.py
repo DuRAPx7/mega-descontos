@@ -134,7 +134,7 @@ def process_job(config: dict) -> tuple[int, int]:
     offers = discover_offers(
         str(config["storeUrl"]),
         str(config.get("cdpUrl") or "http://127.0.0.1:9224"),
-        max(1, int(config.get("limit") or 30)),
+        max(1, min(int(job.get("target") or config.get("limit") or 30), 100)),
         max(1, int(config.get("scrolls") or 10)),
     )
     statuses = publish_to_site(config["siteUrl"], config["adminUsername"], config["adminPassword"], offers)

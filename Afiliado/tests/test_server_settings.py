@@ -30,6 +30,7 @@ class ServerSettingsTests(unittest.TestCase):
     def test_normalizes_bot_settings(self):
         settings = server.normalize_bot_settings(
             {
+                "offersPerStore": 40,
                 "minimumDiscount": 20,
                 "minimumRating": 4.5,
                 "minimumSales": 30,
@@ -41,6 +42,7 @@ class ServerSettingsTests(unittest.TestCase):
             }
         )
 
+        self.assertEqual(settings["offersPerStore"], 40)
         self.assertEqual(settings["minimumDiscount"], 20)
         self.assertEqual(settings["minimumRating"], 4.5)
         self.assertEqual(settings["minimumSales"], 30)
@@ -53,6 +55,7 @@ class ServerSettingsTests(unittest.TestCase):
     def test_clamps_bot_settings(self):
         settings = server.normalize_bot_settings(
             {
+                "offersPerStore": 500,
                 "minimumDiscount": 200,
                 "minimumRating": 9,
                 "minimumSales": -1,
@@ -64,6 +67,7 @@ class ServerSettingsTests(unittest.TestCase):
             }
         )
 
+        self.assertEqual(settings["offersPerStore"], 100)
         self.assertEqual(settings["minimumDiscount"], 90)
         self.assertEqual(settings["minimumRating"], 5)
         self.assertEqual(settings["minimumSales"], 0)
@@ -227,3 +231,24 @@ class ServerSettingsTests(unittest.TestCase):
 
         self.assertEqual(claimed["state"], "processing")
         self.assertEqual(saved[-1]["state"], "processing")
+
+    def test_queues_same_target_for_every_agent(self):
+        candidates = [
+            {"id": index, "store": "Mercado Livre", "productUrl": f"https://produto/{index}"}
+            for index in range(10)
+        ]
+        saved = {}
+        with (
+            patch.object(server, "read_deal_candidates", return_value=candidates),
+            patch.object(
+                server.offer_storage,
+                "set_integration",
+                side_effect=lambda provider, payload: saved.update({provider: payload}),
+            ),
+        ):
+            mercado_livre = server.queue_automation_job(7)
+            amazon = server.queue_amazon_job(7)
+            magalu = server.queue_magalu_job(7)
+
+        self.assertEqual(len(mercado_livre["candidateIds"]), 7)
+        self.assertEqual({mercado_livre["target"], amazon["target"], magalu["target"]}, {7})
