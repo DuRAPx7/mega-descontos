@@ -53,6 +53,8 @@ class PublicPagesTests(unittest.TestCase):
             self.assertIn(f'id="{element_id}"', page)
         self.assertIn(".store-status-grid", styles)
         self.assertIn("summarizeStore", script)
+        self.assertNotIn('id="botStatusList"', page)
+        self.assertNotIn('id="botStatusSummary"', page)
 
     def test_bot_shortcut_starts_site_and_opens_work_files(self):
         shortcut = (ROOT_DIR / "atalhos" / "rodar_bot.bat").read_text(encoding="utf-8")
