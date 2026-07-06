@@ -42,7 +42,7 @@ class ServerSettingsTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(settings["offersPerStore"], 40)
+        self.assertEqual(settings["offersPerStore"], 50)
         self.assertEqual(settings["minimumDiscount"], 20)
         self.assertEqual(settings["minimumRating"], 4.5)
         self.assertEqual(settings["minimumSales"], 30)
@@ -67,7 +67,7 @@ class ServerSettingsTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(settings["offersPerStore"], 100)
+        self.assertEqual(settings["offersPerStore"], 50)
         self.assertEqual(settings["minimumDiscount"], 90)
         self.assertEqual(settings["minimumRating"], 5)
         self.assertEqual(settings["minimumSales"], 0)
@@ -235,7 +235,7 @@ class ServerSettingsTests(unittest.TestCase):
     def test_queues_same_target_for_every_agent(self):
         candidates = [
             {"id": index, "store": "Mercado Livre", "productUrl": f"https://produto/{index}"}
-            for index in range(10)
+            for index in range(60)
         ]
         saved = {}
         with (
@@ -247,8 +247,33 @@ class ServerSettingsTests(unittest.TestCase):
             ),
         ):
             mercado_livre = server.queue_automation_job(7)
-            amazon = server.queue_amazon_job(7)
-            magalu = server.queue_magalu_job(7)
+            amazon = server.queue_amazon_job(7, "waiting")
+            magalu = server.queue_magalu_job(7, "waiting")
 
-        self.assertEqual(len(mercado_livre["candidateIds"]), 7)
-        self.assertEqual({mercado_livre["target"], amazon["target"], magalu["target"]}, {7})
+        self.assertEqual(len(mercado_livre["candidateIds"]), 50)
+        self.assertEqual({mercado_livre["target"], amazon["target"], magalu["target"]}, {50})
+        self.assertEqual(amazon["state"], "waiting")
+        self.assertEqual(magalu["state"], "waiting")
+
+    def test_agents_are_promoted_one_at_a_time(self):
+        jobs = {
+            server.AUTOMATION_JOB_PROVIDER: {
+                "id": "ml-job",
+                "state": "processing",
+                "candidateIds": [],
+            },
+            server.AMAZON_JOB_PROVIDER: {"id": "amazon-job", "state": "waiting"},
+            server.MAGALU_JOB_PROVIDER: {"id": "magalu-job", "state": "waiting"},
+        }
+        with (
+            patch.object(server.offer_storage, "get_integration", side_effect=lambda provider: jobs.get(provider)),
+            patch.object(server.offer_storage, "set_integration", side_effect=lambda provider, payload: jobs.update({provider: payload})),
+            patch.object(server, "complete_deal_candidates", return_value=0),
+        ):
+            server.finish_automation_job("ml-job", [])
+            self.assertEqual(jobs[server.AMAZON_JOB_PROVIDER]["state"], "pending")
+            self.assertEqual(jobs[server.MAGALU_JOB_PROVIDER]["state"], "waiting")
+            jobs[server.AMAZON_JOB_PROVIDER]["state"] = "processing"
+            server.finish_amazon_job("amazon-job")
+
+        self.assertEqual(jobs[server.MAGALU_JOB_PROVIDER]["state"], "pending")

@@ -135,14 +135,11 @@ function summarizeStore(status, offers, store, agentStatus = null) {
   const sources = (status.sources || []).filter((source) => sourceBelongsToStore(source, store));
   const storeNames = { ml: "Mercado Livre", shopee: "Shopee", amazon: "Amazon", magalu: "Magalu" };
   const published = offers.filter((offer) => offer.store === storeNames[store]).length;
-  const approvedFromRun = sources
-    .filter((source) => source.ok)
-    .reduce((total, source) => total + Number(source.count || 0), 0);
   const failed = sources.filter((source) => !source.ok).length + Number(agentStatus?.failed || 0);
   const timestamps = sources.map((source) => source.checkedAt).filter(Boolean);
   if (agentStatus?.updatedAt) timestamps.push(agentStatus.updatedAt);
   return {
-    approved: approvedFromRun || published,
+    approved: published,
     failed,
     checkedAt: timestamps.sort().at(-1) || status.checkedAt || "",
   };
@@ -247,6 +244,29 @@ async function waitForAutomationAgent(startedAt, endpoint, stateId, messageId, s
     if (updatedAt >= startedAt && status.state === "error") throw new Error(status.message || "Falha no agente local.");
   }
   throw new Error(`A coleta terminou, mas o agente ${store} nao respondeu.`);
+}
+
+async function waitForAutomationSequence() {
+  const labels = {
+    mercadoLivre: "Mercado Livre",
+    amazon: "Amazon",
+    magalu: "Magalu"
+  };
+  for (let attempt = 0; attempt < 600; attempt += 1) {
+    const sequence = await api("/api/automation-sequence/status");
+    if (sequence.complete) return sequence;
+    const active = sequence.active;
+    if (active) {
+      const online = agentIsOnline(sequence.agents?.[active] || {});
+      byId("runBotStatus").textContent = online
+        ? `Executando ${labels[active]} — etapa atual da fila de 50 ofertas por loja.`
+        : `Aguardando o agente ${labels[active]} ficar online para continuar a fila.`;
+    } else {
+      byId("runBotStatus").textContent = "Preparando o proximo agente da fila...";
+    }
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+  throw new Error("A fila de automacao nao terminou dentro do tempo esperado.");
 }
 
 function fillSettings() {
@@ -406,29 +426,12 @@ async function runBot() {
   try {
     const payload = await api("/api/run-bot", { method: "POST" });
     const removed = (payload.cleanup?.publishedRemoved || 0) + (payload.cleanup?.reviewRemoved || 0);
-    const target = payload.offersPerStore || payload.settings?.offersPerStore || 30;
+    const target = 50;
     const shopee = payload.storeSummary?.shopee || {};
-    const mercadoLivre = payload.storeSummary?.mercadolivre || {};
-    byId("runBotStatus").textContent = `Meta: ${target} ofertas por loja. Shopee: ${shopee.found || 0}. Mercado Livre: ${payload.automationJob?.total || 0}. Amazon e Magalu foram acionados com a mesma meta.`;
-    const agents = await loadStatus();
-    const waits = [];
-    if ((payload.automationJob?.total || 0) > 0 && agentIsOnline(agents.mercadoLivre)) {
-      waits.push(waitForAutomationAgent(startedAt, "/api/automation-agent/status", "automationAgentState", "automationAgentMessage", "Mercado Livre"));
-    }
-    if (payload.amazonAutomationJob?.state === "pending" && agentIsOnline(agents.amazon)) {
-      waits.push(waitForAutomationAgent(startedAt, "/api/amazon-automation-agent/status", "amazonAgentState", "amazonAgentMessage", "Amazon"));
-    }
-    if (payload.magaluAutomationJob?.state === "pending" && agentIsOnline(agents.magalu)) {
-      waits.push(waitForAutomationAgent(startedAt, "/api/magalu-automation-agent/status", "magaluAgentState", "magaluAgentMessage", "Magalu"));
-    }
-    const completedAgents = await Promise.all(waits);
-    const localProcessed = completedAgents.reduce((total, agent) => total + Number(agent.processed || 0), 0);
-    const localFailed = completedAgents.reduce((total, agent) => total + Number(agent.failed || 0), 0);
-    const waiting = [];
-    if ((payload.automationJob?.total || 0) > 0 && !agentIsOnline(agents.mercadoLivre)) waiting.push("Mercado Livre");
-    if (payload.amazonAutomationJob?.state === "pending" && !agentIsOnline(agents.amazon)) waiting.push("Amazon");
-    if (payload.magaluAutomationJob?.state === "pending" && !agentIsOnline(agents.magalu)) waiting.push("Magalu");
-    byId("runBotStatus").textContent = `${payload.autoPublished || 0} ofertas da Shopee e ${localProcessed} ofertas dos agentes publicadas; ${localFailed} falharam e ${removed} antigas foram removidas.${waiting.length ? ` Aguardando agente: ${waiting.join(" e ")}.` : ""}`;
+    byId("runBotStatus").textContent = `Shopee concluiu ${shopee.found || 0} de ${target}. Iniciando os agentes, um por vez...`;
+    await loadStatus();
+    const sequence = await waitForAutomationSequence();
+    byId("runBotStatus").textContent = `${payload.autoPublished || 0} ofertas da Shopee e ${sequence.processed || 0} ofertas dos agentes publicadas; ${sequence.failed || 0} falharam e ${removed} antigas foram removidas.`;
     await loadStatus();
   } catch (error) {
     byId("runBotStatus").textContent = error.message;

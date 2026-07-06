@@ -51,8 +51,11 @@ class PublicPagesTests(unittest.TestCase):
         page = (FRONTEND_DIR / "admin-settings.html").read_text(encoding="utf-8")
         script = (FRONTEND_DIR / "admin-dashboard.js").read_text(encoding="utf-8")
         self.assertIn('id="offersPerStore"', page)
+        self.assertIn('value="50" readonly', page)
         self.assertIn("offersPerStore:", script)
-        self.assertIn("Meta:", script)
+        self.assertIn("/api/automation-sequence/status", script)
+        self.assertIn("approved: published", script)
+        self.assertNotIn("Promise.all(waits)", script)
 
     def test_admin_status_has_store_dashboard(self):
         page = (FRONTEND_DIR / "admin.html").read_text(encoding="utf-8")
