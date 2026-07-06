@@ -16,6 +16,7 @@ except ImportError:
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT_DIR / "bot" / "links_magalu_afiliados_gerados.csv"
+BRL_PRICE_PATTERN = r"R\$\s*[\d.]+,\d{2}"
 
 
 def is_influencer_store_url(value: str) -> bool:
@@ -40,6 +41,45 @@ def is_influencer_product_url(value: str) -> bool:
 def product_code(value: str) -> str:
     match = re.search(r"/p/([^/?#]+)", urlparse(value).path, re.IGNORECASE)
     return match.group(1).lower() if match else ""
+
+
+def extract_magalu_prices(text: str, discount: int | None = None) -> tuple[float | None, float | None]:
+    normalized = re.sub(r"\s+", " ", str(text or "").replace("\xa0", " ")).strip()
+    if not normalized:
+        return None, None
+
+    installment_pattern = (
+        rf"\b\d{{1,2}}\s*(?:x|vez(?:es)?)\s*(?:de\s*)?{BRL_PRICE_PATTERN}"
+    )
+    without_installments = re.sub(
+        installment_pattern,
+        " ",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    pix_labels = re.findall(
+        rf"({BRL_PRICE_PATTERN})\s*(?:no\s*)?pix\b",
+        without_installments,
+        flags=re.IGNORECASE,
+    )
+    pix_prices = [
+        price for price in (parse_brl_price(label) for label in pix_labels)
+        if price is not None
+    ]
+    cash_prices = [
+        price
+        for price in (
+            parse_brl_price(label)
+            for label in re.findall(BRL_PRICE_PATTERN, without_installments, flags=re.IGNORECASE)
+        )
+        if price is not None
+    ]
+
+    current_price = min(pix_prices) if pix_prices else (min(cash_prices) if cash_prices else None)
+    if current_price is None:
+        return None, None
+    old_price = calculate_old_price(current_price, discount, sorted(cash_prices, reverse=True))
+    return current_price, old_price
 
 
 def connect_browser(cdp_url: str):
@@ -89,16 +129,11 @@ def collect_offers_from_page(page, limit: int) -> list[dict]:
         code = product_code(affiliate_url)
         if not code or code in seen or not is_influencer_product_url(affiliate_url):
             continue
-        prices = [
-            price for price in (parse_brl_price(value) for value in raw.get("prices", []))
-            if price is not None
-        ]
-        if not prices:
-            continue
-        current_price = min(prices)
         discount_match = re.search(r"\d+", " ".join(raw.get("discounts", [])))
         discount = int(discount_match.group()) if discount_match else None
-        old_price = calculate_old_price(current_price, discount, sorted(prices, reverse=True))
+        current_price, old_price = extract_magalu_prices(str(raw.get("text") or ""), discount)
+        if current_price is None:
+            continue
         title = re.sub(r"\s+", " ", str(raw.get("title") or "")).strip(" -")
         image = str(raw.get("image") or "").strip()
         if not old_price or old_price <= current_price or len(title) < 8 or not image.startswith("https://"):
