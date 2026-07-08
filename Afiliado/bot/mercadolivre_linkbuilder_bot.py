@@ -328,6 +328,10 @@ def collect_urls_from_page(page, source_links: set[str]) -> list[str]:
     return urls
 
 
+def use_cloud_browser(cdp_url: str) -> bool:
+    return str(cdp_url or "").strip().lower() in {"cloud", "headless", "playwright"}
+
+
 def connect_to_linkbuilder(cdp_url: str):
     try:
         from playwright.sync_api import sync_playwright
@@ -338,19 +342,25 @@ def connect_to_linkbuilder(cdp_url: str):
 
     playwright = sync_playwright().start()
     try:
-        browser = playwright.chromium.connect_over_cdp(cdp_url)
+        if use_cloud_browser(cdp_url):
+            browser = playwright.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
+            context = browser.new_context(locale="pt-BR", timezone_id="America/Sao_Paulo")
+            page = context.new_page()
+            page.goto(LINKBUILDER_URL, wait_until="domcontentloaded")
+        else:
+            browser = playwright.chromium.connect_over_cdp(cdp_url)
+            pages = [page for context in browser.contexts for page in context.pages]
+            page = next((item for item in pages if "mercadolivre.com.br/afiliados/linkbuilder" in item.url), None)
+            if page is None:
+                context = browser.contexts[0] if browser.contexts else browser.new_context()
+                page = context.new_page()
+                page.goto(LINKBUILDER_URL, wait_until="domcontentloaded")
     except Exception as error:
         playwright.stop()
         raise RuntimeError(
             "Nao consegui controlar o navegador. Abra o Mercado Livre usando "
             "abrir_gerador_mercado_livre.bat e tente novamente."
         ) from error
-    pages = [page for context in browser.contexts for page in context.pages]
-    page = next((item for item in pages if "mercadolivre.com.br/afiliados/linkbuilder" in item.url), None)
-    if page is None:
-        context = browser.contexts[0] if browser.contexts else browser.new_context()
-        page = context.new_page()
-        page.goto(LINKBUILDER_URL, wait_until="domcontentloaded")
     return playwright, browser, page
 
 
@@ -382,6 +392,8 @@ def generate_affiliate_links(source_links: list[str], cdp_url: str, wait_seconds
             time.sleep(1)
         return generated
     finally:
+        if use_cloud_browser(cdp_url):
+            browser.close()
         # Nao fechamos o navegador conectado por CDP para preservar o login e a pagina aberta.
         playwright.stop()
 

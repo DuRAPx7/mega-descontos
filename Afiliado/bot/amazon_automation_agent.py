@@ -31,6 +31,7 @@ try:
         authenticated_opener,
         browser_candidates,
         cdp_is_ready,
+        use_cloud_browser,
     )
 except ImportError:
     from amazon_discovery_bot import (
@@ -46,6 +47,7 @@ except ImportError:
         authenticated_opener,
         browser_candidates,
         cdp_is_ready,
+        use_cloud_browser,
     )
 
 
@@ -91,7 +93,7 @@ def load_config(path: Path) -> dict:
 
 
 def ensure_browser(cdp_url: str) -> None:
-    if cdp_is_ready(cdp_url):
+    if use_cloud_browser(cdp_url) or cdp_is_ready(cdp_url):
         return
     browser = next((path for path in browser_candidates() if path.exists()), None)
     if not browser:
