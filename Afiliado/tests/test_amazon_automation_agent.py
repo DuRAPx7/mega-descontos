@@ -30,6 +30,13 @@ class AmazonAutomationAgentTests(unittest.TestCase):
         self.assertIsNone(current)
         self.assertIsNone(old)
 
+    def test_ignores_unit_price_even_when_it_is_above_ten_percent(self):
+        current, old = extract_amazon_prices(
+            "-40% R$ 19,99 (R$5,00 / unidade) De: R$ 33,68",
+            40,
+        )
+        self.assertEqual(current, 19.99)
+        self.assertEqual(old, 33.68)
     def test_processes_single_manual_job(self):
         config = {
             "siteUrl": "https://example.test",

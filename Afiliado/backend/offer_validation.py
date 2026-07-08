@@ -17,7 +17,7 @@ STOCK_IMAGE_HOSTS = (
     "pixabay.com",
 )
 UNIT_PRICE_RISK_STORES = {"amazon", "magalu"}
-MIN_REASONABLE_PRICE_RATIO = 0.10
+MIN_REASONABLE_PRICE_RATIO = 0.25
 
 
 def parse_datetime(value: object) -> datetime | None:
