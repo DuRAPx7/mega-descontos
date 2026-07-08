@@ -94,6 +94,16 @@ def extract_amazon_prices(text: str, discount: int | None = None) -> tuple[float
     ]
     if not prices:
         return None, None
+
+    # Em cards de oferta a Amazon pode misturar o preco cheio com valores por
+    # unidade, como "R$ 0,02". Se existir um preco normal na mesma area,
+    # descartamos esses centavos para nao publicar desconto falso.
+    highest_price = max(prices)
+    if highest_price >= 2:
+        prices = [price for price in prices if price >= highest_price * 0.10]
+    if len(prices) < 2:
+        return None, None
+
     current_price = min(prices)
     old_price = calculate_old_price(current_price, discount, sorted(prices, reverse=True))
     return current_price, old_price

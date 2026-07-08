@@ -42,6 +42,17 @@ class OfferValidationTests(unittest.TestCase):
         valid, rejected = partition_valid_offers([valid_offer(), invalid])
         self.assertEqual(len(valid), 1)
         self.assertEqual(len(rejected), 1)
+    def test_rejects_amazon_unit_price_like_discount(self) -> None:
+        offer = valid_offer()
+        offer["oldPrice"] = 7.99
+        offer["currentPrice"] = 0.02
+        self.assertTrue(any("unidade" in error for error in validate_offer(offer)))
+
+    def test_allows_reasonable_amazon_discount(self) -> None:
+        offer = valid_offer()
+        offer["oldPrice"] = 24.79
+        offer["currentPrice"] = 19.90
+        self.assertEqual(validate_offer(offer), [])
 
 
 if __name__ == "__main__":

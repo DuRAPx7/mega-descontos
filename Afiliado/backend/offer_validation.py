@@ -16,6 +16,8 @@ STOCK_IMAGE_HOSTS = (
     "pexels.com",
     "pixabay.com",
 )
+UNIT_PRICE_RISK_STORES = {"amazon", "magalu"}
+MIN_REASONABLE_PRICE_RATIO = 0.10
 
 
 def parse_datetime(value: object) -> datetime | None:
@@ -66,6 +68,8 @@ def validate_offer(offer: object) -> list[str]:
     if offer.get("id") is None:
         errors.append("identificador ausente")
 
+    store_name = str(offer.get("store") or "").strip().lower()
+
     try:
         old_price = float(offer.get("oldPrice"))
         current_price = float(offer.get("currentPrice"))
@@ -73,6 +77,8 @@ def validate_offer(offer: object) -> list[str]:
             errors.append("os precos precisam ser maiores que zero")
         elif current_price >= old_price:
             errors.append("o preco atual precisa ser menor que o preco antigo")
+        elif store_name in UNIT_PRICE_RISK_STORES and current_price < old_price * MIN_REASONABLE_PRICE_RATIO:
+            errors.append("desconto extremo parece preco por unidade ou informacao divergente da loja")
     except (TypeError, ValueError):
         errors.append("precos invalidos")
 
