@@ -105,6 +105,19 @@ class PublicPagesTests(unittest.TestCase):
         self.assertIn("%USERPROFILE%\\.cache\\codex-runtimes", installer)
         self.assertNotIn("where py", installer)
 
+    def test_linux_kde_agent_shortcuts_are_available(self):
+        shortcuts = ROOT_DIR / "atalhos"
+        installer = (shortcuts / "instalar_automacao_linux.sh").read_text(encoding="utf-8")
+        launcher = (shortcuts / "iniciar_agentes_linux.sh").read_text(encoding="utf-8")
+        agent = (ROOT_DIR / "bot" / "mercadolivre_automation_agent.py").read_text(encoding="utf-8")
+
+        self.assertIn(".config/autostart", installer)
+        self.assertIn(".venv", installer)
+        self.assertIn("mega-descontos-mercado-livre.desktop", installer)
+        self.assertIn("iniciar_agente_mercado_livre_linux.sh", launcher)
+        self.assertIn("shutil.which", agent)
+        self.assertIn("chromium", agent)
+
     def test_agents_load_bundled_windows_runtime_dlls(self):
         for filename in ("mercadolivre_automation_agent.py", "amazon_automation_agent.py", "magalu_automation_agent.py"):
             agent = (ROOT_DIR / "bot" / filename).read_text(encoding="utf-8")

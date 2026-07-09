@@ -2,6 +2,7 @@ import argparse
 import getpass
 import json
 import os
+import shutil
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -87,7 +88,7 @@ def browser_candidates() -> list[Path]:
     local_app_data = Path(os.environ.get("LOCALAPPDATA", "C:/"))
     program_files = Path(os.environ.get("ProgramFiles", "C:/Program Files"))
     program_files_x86 = Path(os.environ.get("ProgramFiles(x86)", "C:/Program Files (x86)"))
-    return [
+    candidates = [
         local_app_data / "BraveSoftware/Brave-Browser/Application/brave.exe",
         program_files / "BraveSoftware/Brave-Browser/Application/brave.exe",
         local_app_data / "Google/Chrome/Application/chrome.exe",
@@ -95,6 +96,32 @@ def browser_candidates() -> list[Path]:
         program_files / "Microsoft/Edge/Application/msedge.exe",
         program_files_x86 / "Microsoft/Edge/Application/msedge.exe",
     ]
+    for command in (
+        "brave",
+        "brave-browser",
+        "chromium",
+        "google-chrome-stable",
+        "google-chrome",
+        "microsoft-edge-stable",
+        "microsoft-edge",
+        "vivaldi",
+    ):
+        found = shutil.which(command)
+        if found:
+            candidates.append(Path(found))
+    candidates.extend(
+        Path(path)
+        for path in (
+            "/usr/bin/brave",
+            "/usr/bin/brave-browser",
+            "/usr/bin/chromium",
+            "/usr/bin/google-chrome-stable",
+            "/usr/bin/google-chrome",
+            "/usr/bin/microsoft-edge-stable",
+            "/usr/bin/vivaldi",
+        )
+    )
+    return candidates
 
 
 def use_cloud_browser(cdp_url: str) -> bool:
