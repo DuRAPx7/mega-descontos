@@ -21,6 +21,7 @@ class AmazonAutomationAgentTests(unittest.TestCase):
         )
         self.assertEqual(current, 1999.00)
         self.assertEqual(old, 2499.00)
+
     def test_rejects_unit_price_outlier_when_only_old_price_remains(self):
         current, old = extract_amazon_prices(
             "Heinz Ketchup Tradicional 1,033KG R$ 0,02 De: R$ 7,99",
