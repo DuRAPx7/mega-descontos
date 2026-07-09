@@ -381,8 +381,22 @@ def ensure_amazon_affiliate_url(url: str) -> str:
 
 
 def extract_amazon_prices(page: str) -> tuple[float | None, float | None]:
+    normalized = re.sub(r"\s+", " ", html.unescape(page).replace("\xa0", " "))
+    normalized = re.sub(
+        r"\(?R\$\s*\d[\d.]*,\d{2}\s*/\s*[^)]+?\)",
+        " ",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    normalized = re.sub(
+        r"\b\d{1,2}\s*x\s*(?:de\s*)?R\$\s*\d[\d.]*,\d{2}",
+        " ",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+
     candidates = []
-    for match in re.finditer(r"R\$\s*\d[\d.]*,\d{2}", html.unescape(page)):
+    for match in re.finditer(r"R\$\s*\d[\d.]*,\d{2}", normalized):
         try:
             price = parse_price(match.group(0))
         except ValueError:
@@ -393,8 +407,14 @@ def extract_amazon_prices(page: str) -> tuple[float | None, float | None]:
     if not candidates:
         return None, None
 
-    current_price = candidates[0]
-    old_price = next((price for price in candidates[1:] if price > current_price), None)
+    highest_price = max(candidates)
+    if highest_price >= 2:
+        candidates = [price for price in candidates if price >= highest_price * 0.10]
+    if len(candidates) < 2:
+        return None, None
+
+    current_price = min(candidates)
+    old_price = next((price for price in sorted(candidates, reverse=True) if price > current_price), None)
     return current_price, old_price
 
 
