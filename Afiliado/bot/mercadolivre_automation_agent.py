@@ -97,6 +97,10 @@ def browser_candidates() -> list[Path]:
     ]
 
 
+def use_cloud_browser(cdp_url: str) -> bool:
+    return str(cdp_url or "").strip().lower() in {"cloud", "headless", "playwright"}
+
+
 def cdp_is_ready(cdp_url: str) -> bool:
     try:
         with urlopen(cdp_url.rstrip("/") + "/json/version", timeout=3):
@@ -106,7 +110,7 @@ def cdp_is_ready(cdp_url: str) -> bool:
 
 
 def ensure_browser(cdp_url: str) -> None:
-    if cdp_is_ready(cdp_url):
+    if use_cloud_browser(cdp_url) or cdp_is_ready(cdp_url):
         return
     browser = next((path for path in browser_candidates() if path.exists()), None)
     if not browser:

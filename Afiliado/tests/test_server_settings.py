@@ -277,3 +277,26 @@ class ServerSettingsTests(unittest.TestCase):
             server.finish_amazon_job("amazon-job")
 
         self.assertEqual(jobs[server.MAGALU_JOB_PROVIDER]["state"], "pending")
+    def test_cloud_automation_config_uses_environment(self):
+        with patch.dict(
+            server.os.environ,
+            {
+                "CLOUD_AUTOMATION": "true",
+                "PUBLIC_SITE_URL": "https://exemplo.render.com/",
+                "ADMIN_USERNAME": "admin-cloud",
+                "ADMIN_PASSWORD": "senha-cloud",
+                "AMAZON_ASSOCIATE_TAG": "tag-cloud-20",
+                "MAGALU_STORE_URL": "https://www.magazinevoce.com.br/magazinemegadescont/",
+            },
+            clear=False,
+        ):
+            config = server.build_cloud_agent_config()
+            enabled = server.cloud_automation_enabled()
+
+        self.assertTrue(enabled)
+        self.assertEqual(config["siteUrl"], "https://exemplo.render.com")
+        self.assertEqual(config["adminUsername"], "admin-cloud")
+        self.assertEqual(config["adminPassword"], "senha-cloud")
+        self.assertEqual(config["associateTag"], "tag-cloud-20")
+        self.assertEqual(config["cdpUrl"], "cloud")
+        self.assertEqual(config["storeUrl"], "https://www.magazinevoce.com.br/magazinemegadescont/")

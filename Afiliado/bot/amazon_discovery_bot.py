@@ -147,6 +147,10 @@ def is_probable_product_url(url: str) -> bool:
     return "amazon." in host and bool(extract_asin(url))
 
 
+def use_cloud_browser(cdp_url: str) -> bool:
+    return str(cdp_url or "").strip().lower() in {"cloud", "headless", "playwright"}
+
+
 def connect_browser(cdp_url: str):
     try:
         from playwright.sync_api import sync_playwright
@@ -155,11 +159,15 @@ def connect_browser(cdp_url: str):
 
     playwright = sync_playwright().start()
     try:
-        browser = playwright.chromium.connect_over_cdp(cdp_url)
+        if use_cloud_browser(cdp_url):
+            browser = playwright.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
+            context = browser.new_context(locale="pt-BR", timezone_id="America/Sao_Paulo")
+        else:
+            browser = playwright.chromium.connect_over_cdp(cdp_url)
+            context = browser.contexts[0] if browser.contexts else browser.new_context()
     except Exception as error:
         playwright.stop()
-        raise RuntimeError("Nao consegui controlar o navegador da Amazon. Abra pelo .bat e tente novamente.") from error
-    context = browser.contexts[0] if browser.contexts else browser.new_context()
+        raise RuntimeError("Nao consegui controlar o navegador da Amazon.") from error
     return playwright, context
 
 

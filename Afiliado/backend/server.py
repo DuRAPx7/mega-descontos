@@ -35,6 +35,7 @@ MAGALU_JOB_PROVIDER = "magalu_automation_job"
 OFFERS_PER_STORE = 50
 AUTOMATION_TERMINAL_STATES = {"completed", "failed", "empty"}
 SNAPSHOT_CLEANUP_SOURCES = {"shopee_open_api"}
+CLOUD_AUTOMATION_STATES = {"running": False}
 DEFAULT_BOT_SETTINGS = {
     "offersPerStore": OFFERS_PER_STORE,
     "minimumDiscount": 15,
@@ -602,6 +603,65 @@ def read_automation_sequence_status() -> dict:
         "failed": sum(int(status.get("failed") or 0) for status in statuses.values()),
     }
 
+
+
+def cloud_automation_enabled() -> bool:
+    return os.environ.get("CLOUD_AUTOMATION", "false").lower() in {"1", "true", "yes", "on"}
+
+
+def cloud_site_url() -> str:
+    return (
+        os.environ.get("PUBLIC_SITE_URL")
+        or os.environ.get("SITE_URL")
+        or os.environ.get("RENDER_EXTERNAL_URL")
+        or "https://mega-descontos.onrender.com"
+    ).rstrip("/")
+
+
+def build_cloud_agent_config() -> dict:
+    return {
+        "siteUrl": cloud_site_url(),
+        "adminUsername": os.environ.get("ADMIN_USERNAME", "admin"),
+        "adminPassword": os.environ.get("ADMIN_PASSWORD", ""),
+        "cdpUrl": "cloud",
+        "pollSeconds": 15,
+        "batchSize": 20,
+        "associateTag": os.environ.get("AMAZON_ASSOCIATE_TAG", "megadesco0304-20"),
+        "storeUrl": os.environ.get("MAGALU_STORE_URL") or os.environ.get("MAGALU_STORE_URL_INFLUENCER") or "",
+        "limit": OFFERS_PER_STORE,
+        "scrolls": int(os.environ.get("CLOUD_AUTOMATION_SCROLLS", "8") or 8),
+    }
+
+
+def run_cloud_automation_sequence() -> None:
+    if CLOUD_AUTOMATION_STATES["running"]:
+        return
+    CLOUD_AUTOMATION_STATES["running"] = True
+    try:
+        config = build_cloud_agent_config()
+        if not config.get("adminPassword"):
+            raise RuntimeError("Configure ADMIN_PASSWORD para usar a automacao em nuvem.")
+
+        from bot import mercadolivre_automation_agent, amazon_automation_agent, magalu_automation_agent
+
+        for runner in (
+            mercadolivre_automation_agent.process_candidates,
+            amazon_automation_agent.process_job,
+            magalu_automation_agent.process_job,
+        ):
+            runner(config)
+    except Exception as error:
+        print(f"[Mega Descontos] Falha na automacao em nuvem: {error}")
+    finally:
+        CLOUD_AUTOMATION_STATES["running"] = False
+
+
+def start_cloud_automation_sequence() -> bool:
+    if not cloud_automation_enabled():
+        return False
+    thread = threading.Thread(target=run_cloud_automation_sequence, daemon=True)
+    thread.start()
+    return True
 
 def read_deal_candidates() -> list[dict]:
     return [
@@ -1199,6 +1259,7 @@ class MegaDescontosHandler(SimpleHTTPRequestHandler):
                     "state": magalu_job["state"],
                 }
                 result["offersPerStore"] = target
+                result["cloudAutomation"] = start_cloud_automation_sequence()
             write_json(self, result, 200 if result.get("ok") else 502)
             return
 
