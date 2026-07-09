@@ -300,3 +300,4 @@ class ServerSettingsTests(unittest.TestCase):
         self.assertEqual(config["associateTag"], "tag-cloud-20")
         self.assertEqual(config["cdpUrl"], "cloud")
         self.assertEqual(config["storeUrl"], "https://www.magazinevoce.com.br/magazinemegadescont/")
+        self.assertEqual(config["agentTimeoutSeconds"], 120)

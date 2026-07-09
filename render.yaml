@@ -32,6 +32,8 @@ services:
         value: "false"
       - key: CLOUD_AUTOMATION
         value: "false"
+      - key: CLOUD_AGENT_TIMEOUT_SECONDS
+        value: "120"
       - key: PUBLIC_SITE_URL
         value: "https://mega-descontos.onrender.com"
       - key: MAGALU_STORE_URL
