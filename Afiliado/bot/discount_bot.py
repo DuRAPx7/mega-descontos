@@ -409,7 +409,7 @@ def extract_amazon_prices(page: str) -> tuple[float | None, float | None]:
 
     highest_price = max(candidates)
     if highest_price >= 2:
-        candidates = [price for price in candidates if price >= highest_price * 0.10]
+        candidates = [price for price in candidates if price >= highest_price * 0.25]
     if len(candidates) < 2:
         return None, None
 

@@ -100,7 +100,7 @@ def extract_amazon_prices(text: str, discount: int | None = None) -> tuple[float
     # descartamos esses centavos para nao publicar desconto falso.
     highest_price = max(prices)
     if highest_price >= 2:
-        prices = [price for price in prices if price >= highest_price * 0.10]
+        prices = [price for price in prices if price >= highest_price * 0.25]
     if len(prices) < 2:
         return None, None
 
