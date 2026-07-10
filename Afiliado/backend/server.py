@@ -630,7 +630,55 @@ def build_cloud_agent_config() -> dict:
         "storeUrl": os.environ.get("MAGALU_STORE_URL") or os.environ.get("MAGALU_STORE_URL_INFLUENCER") or "",
         "limit": OFFERS_PER_STORE,
         "scrolls": int(os.environ.get("CLOUD_AUTOMATION_SCROLLS", "8") or 8),
+        "agentTimeoutSeconds": int(os.environ.get("CLOUD_AGENT_TIMEOUT_SECONDS", "120") or 120),
     }
+
+
+def fail_cloud_job(store: str, message: str) -> None:
+    payload = {
+        "state": "error",
+        "message": message,
+        "failed": 1,
+        "clientUpdatedAt": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        if store == "mercadoLivre":
+            write_automation_agent_status(payload)
+            job = offer_storage.get_integration(AUTOMATION_JOB_PROVIDER) or {}
+            if job.get("state") in {"pending", "processing"}:
+                finish_automation_job(str(job.get("id") or ""), job.get("candidateIds") or [], "failed")
+        elif store == "amazon":
+            write_amazon_agent_status(payload)
+            job = offer_storage.get_integration(AMAZON_JOB_PROVIDER) or {}
+            if job.get("state") in {"pending", "processing"}:
+                finish_amazon_job(str(job.get("id") or ""), "failed")
+        elif store == "magalu":
+            write_magalu_agent_status(payload)
+            job = offer_storage.get_integration(MAGALU_JOB_PROVIDER) or {}
+            if job.get("state") in {"pending", "processing"}:
+                finish_magalu_job(str(job.get("id") or ""), "failed")
+    except Exception as error:
+        print(f"[Mega Descontos] Falha ao finalizar job cloud {store}: {error}")
+
+
+def run_cloud_runner(store: str, runner, config: dict) -> None:
+    result = {"error": None}
+
+    def target() -> None:
+        try:
+            runner(config)
+        except Exception as error:
+            result["error"] = error
+
+    timeout = max(30, int(config.get("agentTimeoutSeconds") or 120))
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    thread.join(timeout)
+    if thread.is_alive():
+        fail_cloud_job(store, f"Tempo limite da automacao em nuvem excedido ({timeout}s). Pulando para a proxima loja.")
+        return
+    if result["error"]:
+        fail_cloud_job(store, f"Falha na automacao em nuvem: {result['error']}")
 
 
 def run_cloud_automation_sequence() -> None:
@@ -644,17 +692,16 @@ def run_cloud_automation_sequence() -> None:
 
         from bot import mercadolivre_automation_agent, amazon_automation_agent, magalu_automation_agent
 
-        for runner in (
-            mercadolivre_automation_agent.process_candidates,
-            amazon_automation_agent.process_job,
-            magalu_automation_agent.process_job,
+        for store, runner in (
+            ("mercadoLivre", mercadolivre_automation_agent.process_candidates),
+            ("amazon", amazon_automation_agent.process_job),
+            ("magalu", magalu_automation_agent.process_job),
         ):
-            runner(config)
+            run_cloud_runner(store, runner, config)
     except Exception as error:
         print(f"[Mega Descontos] Falha na automacao em nuvem: {error}")
     finally:
         CLOUD_AUTOMATION_STATES["running"] = False
-
 
 def start_cloud_automation_sequence() -> bool:
     if not cloud_automation_enabled():
