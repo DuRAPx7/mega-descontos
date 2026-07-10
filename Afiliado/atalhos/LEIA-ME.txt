@@ -67,3 +67,29 @@ Depois de configurar o agente principal, execute uma vez:
 O agente Amazon usa um navegador e perfil separados, busca ofertas atuais,
 monta os links com a tag megadesco0304-20 e publica junto com as outras lojas
 quando voce clicar em "Rodar bot agora".
+
+ARCH LINUX / KDE PLASMA
+
+No Arch Linux, instale uma vez as dependencias do sistema:
+  sudo pacman -S python python-pip chromium
+
+Depois, dentro da pasta Afiliado, execute:
+  chmod +x atalhos/*_linux.sh
+  ./atalhos/instalar_automacao_linux.sh
+
+O instalador Linux:
+- cria um ambiente Python local em .venv;
+- instala as dependencias Python;
+- configura os agentes;
+- cria entradas de inicializacao em ~/.config/autostart para o KDE Plasma;
+- inicia Mercado Livre, Amazon e Magalu.
+
+Uso diario no Linux:
+  ./atalhos/iniciar_agentes_linux.sh
+
+Ou simplesmente deixe o KDE abrir os agentes automaticamente quando voce
+entrar na sessao. O botao "Rodar automacao completa" no painel online vai
+enviar trabalho para esses agentes, igual no Windows.
+
+Na primeira abertura do navegador, faca login no Mercado Livre usando o perfil
+aberto pelo agente. Amazon e Magalu usam perfis separados.
