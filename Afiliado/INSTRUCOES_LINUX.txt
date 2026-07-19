@@ -1,0 +1,211 @@
+MEGA DESCONTOS - INSTRUCOES PARA ARCH LINUX / KDE PLASMA
+
+Objetivo:
+Rodar os agentes de automacao no seu Arch Linux/KDE Plasma para que o painel
+online consiga coletar/publicar ofertas das lojas que ainda precisam de agente.
+
+Resumo do funcionamento:
+- Shopee roda direto no servidor/Render.
+- Mercado Livre, Amazon e Magalu podem rodar por agentes locais no Linux.
+- O botao "Rodar automacao completa" no painel online envia trabalho para os
+  agentes que estiverem conectados.
+- No KDE Plasma, os agentes podem iniciar automaticamente quando voce entra na
+  sessao.
+
+
+1) INSTALAR PACOTES DO SISTEMA
+
+No terminal do Arch Linux:
+
+  sudo pacman -Syu
+  sudo pacman -S python python-pip chromium git
+
+Se voce preferir Brave, Chrome, Edge ou Vivaldi, tambem funciona, desde que o
+comando do navegador exista no sistema. O agente procura por:
+
+  chromium
+  google-chrome
+  google-chrome-stable
+  brave
+  brave-browser
+  microsoft-edge
+  microsoft-edge-stable
+  vivaldi
+
+
+2) BAIXAR O PROJETO
+
+Se ainda nao tiver o projeto no Linux:
+
+  git clone https://github.com/DuRAPx7/mega-descontos.git
+  cd mega-descontos/Afiliado
+
+Se ja tiver o projeto:
+
+  cd mega-descontos
+  git pull
+  cd Afiliado
+
+
+3) DAR PERMISSAO AOS SCRIPTS LINUX
+
+Dentro da pasta Afiliado:
+
+  chmod +x atalhos/*_linux.sh
+
+
+4) INSTALAR E CONFIGURAR A AUTOMACAO
+
+Ainda dentro da pasta Afiliado:
+
+  ./atalhos/instalar_automacao_linux.sh
+
+Esse instalador faz:
+- cria um ambiente Python local em .venv;
+- instala as dependencias do projeto;
+- instala o Chromium do Playwright;
+- configura o agente principal;
+- configura Amazon;
+- configura Magalu;
+- cria autostart no KDE Plasma em ~/.config/autostart;
+- inicia os agentes.
+
+Quando pedir usuario e senha, informe o login do painel admin do site online.
+
+Na configuracao do Magalu, informe a URL da sua loja Magazine Voce, exemplo:
+
+  https://www.magazinevoce.com.br/magazinemegadescont/
+
+
+5) INICIAR OS AGENTES MANUALMENTE
+
+Para iniciar todos os agentes de uma vez:
+
+  ./atalhos/iniciar_agentes_linux.sh
+
+Para iniciar um por vez:
+
+  ./atalhos/iniciar_agente_mercado_livre_linux.sh
+  ./atalhos/iniciar_agente_amazon_linux.sh
+  ./atalhos/iniciar_agente_magalu_linux.sh
+
+
+6) AUTOSTART NO KDE PLASMA
+
+O instalador cria estes arquivos:
+
+  ~/.config/autostart/mega-descontos-mercado-livre.desktop
+  ~/.config/autostart/mega-descontos-amazon.desktop
+  ~/.config/autostart/mega-descontos-magalu.desktop
+
+Assim, quando voce entrar na sessao do KDE, os agentes iniciam sozinhos.
+
+Para conferir:
+
+  ls ~/.config/autostart | grep mega-descontos
+
+Para desativar o autostart, remova os arquivos:
+
+  rm ~/.config/autostart/mega-descontos-mercado-livre.desktop
+  rm ~/.config/autostart/mega-descontos-amazon.desktop
+  rm ~/.config/autostart/mega-descontos-magalu.desktop
+
+
+7) LOGIN NO MERCADO LIVRE
+
+Na primeira vez, o agente do Mercado Livre pode abrir o navegador no Link
+Builder. Faca login na conta do Mercado Livre nesse navegador.
+
+Importante:
+- nao feche esse perfil/navegador enquanto estiver testando;
+- depois do login, o agente consegue reutilizar o perfil salvo;
+- se trocar de navegador ou apagar a pasta do perfil, tera que logar de novo.
+
+
+8) TESTAR PELO PAINEL ONLINE
+
+Abra no navegador/celular:
+
+  https://mega-descontos.onrender.com/admin.html
+
+Depois:
+1. Entre com login admin.
+2. Clique em "Rodar automacao completa".
+3. Aguarde alguns minutos.
+4. Veja "Atividade dos agentes".
+5. Confira se as ofertas aparecem no site.
+
+
+9) LIMPAR OFERTAS PARA TESTE DO ZERO
+
+Se quiser testar com o catalogo vazio, peça ao Codex para limpar as ofertas
+online antes de rodar pelo celular.
+
+
+10) ATUALIZAR O PROJETO NO LINUX
+
+Quando eu subir uma nova atualizacao no GitHub, rode:
+
+  cd mega-descontos
+  git pull
+  cd Afiliado
+  chmod +x atalhos/*_linux.sh
+
+Se a atualizacao mexer em dependencias:
+
+  ./.venv/bin/python -m pip install -r requirements.txt
+
+
+11) PROBLEMAS COMUNS
+
+Erro: navegador nao encontrado
+
+Instale Chromium:
+
+  sudo pacman -S chromium
+
+Erro: python venv nao existe
+
+Instale/garanta Python:
+
+  sudo pacman -S python
+
+Depois rode novamente:
+
+  ./atalhos/instalar_automacao_linux.sh
+
+Erro: agente aparece offline no painel
+
+Inicie manualmente:
+
+  ./atalhos/iniciar_agentes_linux.sh
+
+Erro: Mercado Livre nao gera links
+
+Abra o navegador iniciado pelo agente e confira se esta logado no Mercado Livre
+e se o Link Builder abre normalmente.
+
+
+12) COMANDOS RAPIDOS
+
+Instalacao inicial:
+
+  sudo pacman -Syu
+  sudo pacman -S python python-pip chromium git
+  git clone https://github.com/DuRAPx7/mega-descontos.git
+  cd mega-descontos/Afiliado
+  chmod +x atalhos/*_linux.sh
+  ./atalhos/instalar_automacao_linux.sh
+
+Iniciar agentes:
+
+  cd mega-descontos/Afiliado
+  ./atalhos/iniciar_agentes_linux.sh
+
+Atualizar projeto:
+
+  cd mega-descontos
+  git pull
+  cd Afiliado
+  chmod +x atalhos/*_linux.sh
+
