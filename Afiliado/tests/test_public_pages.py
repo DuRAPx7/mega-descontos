@@ -76,12 +76,27 @@ class PublicPagesTests(unittest.TestCase):
         self.assertNotIn('id="botStatusList"', page)
         self.assertNotIn('id="botStatusSummary"', page)
 
-    def test_bot_shortcut_starts_site_and_opens_work_files(self):
-        shortcut = (ROOT_DIR / "atalhos" / "rodar_bot.bat").read_text(encoding="utf-8")
-        self.assertIn("run_bot_once", shortcut)
-        self.assertIn("/admin.html", shortcut)
-        self.assertIn("produtos_monitorados.json", shortcut)
-        self.assertIn("status.json", shortcut)
+    def test_windows_shortcut_starts_all_agents(self):
+        shortcut = (ROOT_DIR / "atalhos" / "INICIAR_TODOS_AGENTES_WINDOWS.bat").read_text(encoding="utf-8")
+        self.assertIn("iniciar_agente_mercado_livre.bat", shortcut)
+        self.assertIn("iniciar_agente_amazon.bat", shortcut)
+        self.assertIn("iniciar_agente_magalu.bat", shortcut)
+        self.assertIn("Rodar automacao completa", shortcut)
+
+    def test_old_manual_shortcuts_were_removed(self):
+        removed = {
+            "abrir_gerador_mercado_livre.bat",
+            "abrir_gerador_shopee.bat",
+            "automatizar_amazon_online.bat",
+            "automatizar_mercado_livre.bat",
+            "automatizar_mercado_livre_online.bat",
+            "automatizar_shopee_online.bat",
+            "gerar_links_mercado_livre.bat",
+            "gerar_links_shopee.bat",
+            "rodar_bot.bat",
+        }
+        existing = {path.name for path in (ROOT_DIR / "atalhos").iterdir()}
+        self.assertFalse(removed & existing)
 
     def test_analytics_tracks_real_public_events(self):
         analytics_page = (FRONTEND_DIR / "admin-analytics.html").read_text(encoding="utf-8")

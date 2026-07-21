@@ -109,8 +109,8 @@ def connect_to_linkbuilder(cdp_url: str, linkbuilder_url: str):
     except Exception as error:
         playwright.stop()
         raise RuntimeError(
-            "Nao consegui controlar o navegador. Abra a Shopee usando "
-            "abrir_gerador_shopee.bat e tente novamente."
+            "Nao consegui controlar o navegador. Abra os agentes usando "
+            "INICIAR_TODOS_AGENTES_WINDOWS.bat e tente novamente."
         ) from error
 
     pages = [page for context in browser.contexts for page in context.pages]
