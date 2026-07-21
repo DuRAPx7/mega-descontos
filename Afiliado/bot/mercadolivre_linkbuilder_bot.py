@@ -358,8 +358,8 @@ def connect_to_linkbuilder(cdp_url: str):
     except Exception as error:
         playwright.stop()
         raise RuntimeError(
-            "Nao consegui controlar o navegador. Abra o Mercado Livre usando "
-            "abrir_gerador_mercado_livre.bat e tente novamente."
+            "Nao consegui controlar o navegador. Abra os agentes usando "
+            "INICIAR_TODOS_AGENTES_WINDOWS.bat e tente novamente."
         ) from error
     return playwright, browser, page
 

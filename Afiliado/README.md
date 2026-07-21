@@ -41,8 +41,9 @@ affiliateUrl: "https://www.amazon.com.br/?tag=SEU-CODIGO-AQUI"
 
 ## Proximo passo do bot
 
-Edite `bot/produtos_monitorados.json` com os produtos que deseja acompanhar e
-execute `rodar_bot.bat`.
+No Windows, inicie os agentes locais com
+`atalhos/INICIAR_TODOS_AGENTES_WINDOWS.bat` e depois clique em
+`Rodar automacao completa` no painel online.
 
 O bot gera `bot/ofertas_geradas.json` para conferencia e atualiza
 automaticamente `data/offers_db.json`, que e o arquivo lido pelo site.

@@ -1,95 +1,74 @@
 MEGA DESCONTOS - ATALHOS
 
-Use estes arquivos para operar o projeto sem mexer nos arquivos internos.
+Esta pasta agora fica separada por fluxo atual:
 
-1. instalar_automacao_completa.bat
-   Execute uma unica vez neste computador.
-   Configura Mercado Livre e Amazon, inicia os agentes e faz com que eles
-   abram automaticamente junto com o Windows.
-   Depois disso, o uso diario e feito somente pelo botao "Rodar bot agora"
-   no painel do site.
+WINDOWS - USO DIARIO
 
-2. iniciar_site.bat
-   Abre o site local em http://127.0.0.1:8000
+1. INICIAR_TODOS_AGENTES_WINDOWS.bat
+   Use este arquivo no Windows.
+   Ele abre 3 janelas separadas:
+   - Mercado Livre
+   - Amazon
+   - Magalu
 
-3. automatizar_mercado_livre_online.bat
-   Gera links do Mercado Livre e cadastra no site online.
+   Deixe as janelas abertas ou minimizadas.
+   Depois clique em "Rodar automacao completa" no painel online.
 
-4. automatizar_shopee_online.bat
-   Le um CSV baixado manualmente na Shopee, gera links afiliados e cadastra no site online.
 
-5. abrir_gerador_mercado_livre.bat
-   Abre somente o gerador do Mercado Livre em navegador controlavel.
+WINDOWS - AGENTES INDIVIDUAIS
 
-6. automatizar_amazon_online.bat
-   Busca ofertas na Amazon, monta links com sua tag e cadastra no site online.
+2. iniciar_agente_mercado_livre.bat
+   Inicia somente o agente Mercado Livre.
 
-7. abrir_gerador_shopee.bat
-   Abre somente o gerador da Shopee em navegador controlavel.
+3. iniciar_agente_amazon.bat
+   Inicia somente o agente Amazon.
 
-8. gerar_links_mercado_livre.bat
-   Usa o gerador ja aberto para criar CSV de links Mercado Livre.
+4. iniciar_agente_magalu.bat
+   Inicia somente o agente Magalu.
 
-9. gerar_links_shopee.bat
-   Le um CSV baixado manualmente na Shopee e usa o gerador para criar CSV de links afiliados.
 
-10. rodar_bot.bat
-   Faz o fluxo local completo em um clique:
-   - inicia o site se estiver fechado;
-   - roda o bot no banco atual;
-   - abre o site e a fila de revisao;
-   - abre produtos monitorados, status, ofertas geradas e links candidatos.
+WINDOWS - CONFIGURACAO
 
-Arquivos de entrada importantes:
-- bot\links_promocoes_potenciais.txt
-- bot\links_shopee_promocoes_potenciais.txt
-- CSV BatchProductLinks baixado na Shopee
+5. instalar_automacao_completa.bat
+   Execute quando for configurar tudo pela primeira vez no Windows.
+   Ele configura Mercado Livre, Amazon e Magalu.
 
-Arquivos de saida importantes:
-- bot\links_afiliados_gerados.csv
-- bot\links_shopee_afiliados_gerados.csv
-- bot\links_amazon_afiliados_gerados.csv
-AUTOMACAO EM UM CLIQUE - MERCADO LIVRE
+6. instalar_agente_mercado_livre.bat
+   Configura somente Mercado Livre.
 
-Execute uma vez:
-  instalar_agente_mercado_livre.bat
+7. instalar_agente_amazon.bat
+   Configura somente Amazon.
 
-Depois disso, o agente inicia junto com o Windows. O botao "Rodar bot agora"
-coleta as ofertas, o agente abre o Link Builder, gera os links afiliados e
-publica os produtos no site. Na primeira abertura do navegador, faca login
-no Mercado Livre usando o perfil aberto pelo agente.
+8. instalar_agente_magalu.bat
+   Configura somente Magalu.
 
-AUTOMACAO EM UM CLIQUE - AMAZON
 
-Depois de configurar o agente principal, execute uma vez:
-  instalar_agente_amazon.bat
+SITE LOCAL
 
-O agente Amazon usa um navegador e perfil separados, busca ofertas atuais,
-monta os links com a tag megadesco0304-20 e publica junto com as outras lojas
-quando voce clicar em "Rodar bot agora".
+9. iniciar_site.bat
+   Abre o site local em http://127.0.0.1:8000.
+   Normalmente voce usa o painel online:
+   https://mega-descontos.onrender.com/admin.html
 
-ARCH LINUX / KDE PLASMA
 
-No Arch Linux, instale uma vez as dependencias do sistema:
-  sudo pacman -S python python-pip chromium
+LINUX / ARCH / KDE PLASMA
 
-Depois, dentro da pasta Afiliado, execute:
-  chmod +x atalhos/*_linux.sh
-  ./atalhos/instalar_automacao_linux.sh
+10. instalar_automacao_linux.sh
+    Instala/configura os agentes no Linux.
 
-O instalador Linux:
-- cria um ambiente Python local em .venv;
-- instala as dependencias Python;
-- configura os agentes;
-- cria entradas de inicializacao em ~/.config/autostart para o KDE Plasma;
-- inicia Mercado Livre, Amazon e Magalu.
+11. iniciar_agentes_linux.sh
+    Inicia todos os agentes no Linux.
 
-Uso diario no Linux:
-  ./atalhos/iniciar_agentes_linux.sh
+12. iniciar_agente_mercado_livre_linux.sh
+13. iniciar_agente_amazon_linux.sh
+14. iniciar_agente_magalu_linux.sh
+    Iniciam os agentes individualmente no Linux.
 
-Ou simplesmente deixe o KDE abrir os agentes automaticamente quando voce
-entrar na sessao. O botao "Rodar automacao completa" no painel online vai
-enviar trabalho para esses agentes, igual no Windows.
 
-Na primeira abertura do navegador, faca login no Mercado Livre usando o perfil
-aberto pelo agente. Amazon e Magalu usam perfis separados.
+IMPORTANTE
+
+- O painel online nao abre programas sozinho no Windows.
+- Primeiro abra os agentes com INICIAR_TODOS_AGENTES_WINDOWS.bat.
+- Depois rode a automacao pelo painel.
+- Se uma janela fechar ou mostrar erro, tire print dela.
+

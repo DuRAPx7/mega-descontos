@@ -1,4 +1,4 @@
-const OFFERS_STORAGE_KEY = "mega_descontos_offers";
+﻿const OFFERS_STORAGE_KEY = "mega_descontos_offers";
 const API_OFFERS_URL = "/api/offers";
 
 if (window.location.protocol === "file:") {
@@ -75,9 +75,9 @@ const automationSources = [
   },
   {
     store: "Amazon",
-    shortcut: "atalhos\\automatizar_amazon_online.bat",
+    shortcut: "atalhos\\INICIAR_TODOS_AGENTES_WINDOWS.bat",
     mode: "Navegador logado",
-    detail: "Lê paginas de ofertas e monta links com sua tag de associado."
+    detail: "LÃª paginas de ofertas e monta links com sua tag de associado."
   }
 ];
 
@@ -971,3 +971,4 @@ importAmazonLink.addEventListener("click", () => {
 loadAdminOffersFromApi()
   .then(() => Promise.all([loadReviewOffers(), loadAutomationDashboard()]));
 loadBotStatus();
+
