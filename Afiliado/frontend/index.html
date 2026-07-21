@@ -12,7 +12,7 @@
   </head>
   <body>
     <div class="notice-bar">
-      <span class="notice-text"><strong>OFERTAS RELÂMPAGO!</strong> Os melhores descontos em tempo real para você economizar mais!</span>
+      <span class="notice-text"><strong>MONITORAMENTO AO VIVO</strong> O Mega Descontos compara ofertas automaticamente para voce economizar mais.</span>
       <div class="notice-links">
         <a class="signup-link" href="#newsletter">Ative os alertas e não perca!</a>
       </div>
@@ -28,7 +28,7 @@
       </a>
 
       <form class="search-panel" id="searchForm">
-        <input id="searchInput" type="search" placeholder="Buscar produtos, lojas, categorias...">
+        <input id="searchInput" type="search" placeholder="Pesquisar produtos, marcas, categorias ou lojas...">
         <button type="submit" aria-label="Buscar">Buscar</button>
       </form>
 
@@ -50,48 +50,58 @@
     </nav>
 
     <main>
-      <section class="hero">
-        <button class="hero-arrow left" aria-label="Oferta anterior">&lsaquo;</button>
+      <section class="hero smart-hero">
         <div class="hero-copy">
-          <h1>Os melhores descontos das <span>melhores lojas!</span></h1>
-          <p>Ofertas em tempo real, cupons exclusivos e os menores preços para você.</p>
-          <div class="hero-benefits" aria-label="Benefícios">
-            <span>◴ <small>Atualização<br>em tempo real</small></span>
-            <span>☆ <small>Cupons<br>exclusivos</small></span>
-            <span>♢ <small>100% seguro<br>e confiável</small></span>
-            <span>✧ <small>Melhores<br>lojas parceiras</small></span>
+          <span class="hero-kicker">Buscador inteligente de ofertas</span>
+          <h1>Economize ate 70% com comparacao automatica de precos.</h1>
+          <p>Comparamos milhares de ofertas, lojas, cupons e historicos para encontrar o melhor custo-beneficio antes de voce comprar.</p>
+          <form class="hero-search" id="heroSearchForm">
+            <label class="sr-only" for="heroSearchInput">Pesquisar ofertas</label>
+            <input id="heroSearchInput" type="search" autocomplete="off" placeholder="Pesquisar produtos, marcas, categorias, SKU ou EAN...">
+            <button type="submit">Procurar produto</button>
+          </form>
+          <div class="search-suggestions" aria-label="Pesquisas populares">
+            <button type="button" data-search-suggestion="Galaxy S25">Galaxy S25</button>
+            <button type="button" data-search-suggestion="Air Fryer">Air Fryer</button>
+            <button type="button" data-search-suggestion="SSD NVMe">SSD NVMe</button>
+            <button type="button" data-search-suggestion="Creatina">Creatina</button>
           </div>
           <div class="hero-actions">
-            <a class="primary-button" href="#ofertas">ϟ&nbsp; Ver ofertas do dia</a>
-            <a class="secondary-button" href="#bot">▶&nbsp; Como funciona?</a>
+            <a class="primary-button" href="#ofertas">Ver ofertas monitoradas</a>
+            <a class="secondary-button" href="#cupons">Ver cupons</a>
+          </div>
+          <div class="hero-benefits" aria-label="Beneficios">
+            <span><b>24/7</b><small>Agentes monitorando lojas</small></span>
+            <span><b>IA</b><small>Ranking por economia real</small></span>
+            <span><b>SEO</b><small>Paginas para categorias e marcas</small></span>
           </div>
         </div>
-        <div class="hero-visual" aria-hidden="true">
-          <span class="bubble amazon">a</span>
-          <span class="bubble shopee">S</span>
-          <span class="bubble magalu">Magalu</span>
-          <span class="bubble ml">ML</span>
-          <span class="discount-tag tag-one">-40%</span>
-          <span class="discount-tag tag-two">-25%</span>
-          <span class="discount-tag tag-three">-60%</span>
-          <span class="cart-shape"></span>
-          <span class="bag-shape"></span>
-          <span class="percent-shape">%</span>
-        </div>
-        <button class="hero-arrow right" aria-label="Proxima oferta">&rsaquo;</button>
-        <div class="hero-dots" aria-hidden="true">
-          <span class="active"></span>
-          <span></span>
-          <span></span>
-          <span></span>
+        <div class="hero-visual hero-intelligence-panel">
+          <div class="scan-card">
+            <span class="scan-pulse"></span>
+            <small>Maiores descontos do momento</small>
+            <ul>
+              <li><strong>Amazon</strong><b id="heroAmazonDiscount">-55%</b></li>
+              <li><strong>Mercado Livre</strong><b id="heroMlDiscount">-42%</b></li>
+              <li><strong>Shopee</strong><b id="heroShopeeDiscount">-68%</b></li>
+              <li><strong>Magalu</strong><b id="heroMagaluDiscount">-37%</b></li>
+            </ul>
+          </div>
+          <div class="scan-terminal" aria-hidden="true">
+            <span>comparando preco...</span>
+            <span>checando frete e cupom...</span>
+            <span>validando queda real...</span>
+          </div>
         </div>
       </section>
 
-      <section class="metrics-strip" aria-label="Números do Mega Descontos">
-        <article><strong>↗</strong><span><b>+ 2 MILHÕES</b> de ofertas disponíveis</span></article>
-        <article><strong>✺</strong><span><b>+ 500 LOJAS</b> parceiras</span></article>
-        <article><strong>♔</strong><span><b>DESCONTOS REAIS</b> atualizados 24h</span></article>
-        <article><strong>♧</strong><span><b>ECONOMIZE MAIS</b> com cupons exclusivos</span></article>
+      <section class="metrics-strip intelligence-metrics" aria-label="Numeros do Mega Descontos">
+        <article><strong id="metricMonitored">+1.250.000</strong><span>ofertas monitoradas</span></article>
+        <article><strong>+350</strong><span>lojas parceiras</span></article>
+        <article><strong>R$12,8 mi</strong><span>economizados pelos usuarios</span></article>
+        <article><strong>30s</strong><span>atualizacao em tempo real</span></article>
+        <article><strong id="metricToday">0</strong><span>produtos novos hoje</span></article>
+        <article><strong id="metricAlerts">0</strong><span>alertas enviados hoje</span></article>
       </section>
 
       <section class="discount-request" id="solicitar-desconto">
